@@ -47,28 +47,54 @@ public class Produto {
         return id;
     }
 
+    //metodos utilziados na troca de paramentros, como nome, categoria etc
+    //eles foram feitos com o tratamento de erro, para evitar falhas no programa
     public void setNome(String novoNome) {
+        if (novoNome == null || novoNome.isBlank()) {
+            throw new IllegalArgumentException(
+                    "O nome não pode ser vazio.");
+        }
         nome = novoNome;
 
     }
 
     public void setCategoria(String novaCategoria) {
+        if (novaCategoria == null || novaCategoria.isBlank()) {
+            throw new IllegalArgumentException(
+                    "A Categoria não pode ser vazia.");
+        }
         categoria_produto = novaCategoria;
     }
 
     public void setDescricao(String novaDescricao) {
+        if (novaDescricao == null || novaDescricao.isBlank()) {
+            throw new IllegalArgumentException(
+                    "A descrição não pode estar vazia.");
+        }
         descricao = novaDescricao;
     }
 
     public void setPreco(double novoPreco) {
+        if (novoPreco < 0) {
+            throw new IllegalArgumentException(
+                    "O preço não pode ser negativo.");
+        }
         preco = novoPreco;
     }
 
     public void adicionarEstoque(int unidadesAacrescentar) {
+        if (unidadesAacrescentar <= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade a ser acrescentada deve ser diferente de 0.");
+        }
         quantidade_estoque = quantidade_estoque + unidadesAacrescentar;
     }
 
     public void retirarEstoque(int unidadesAretirar) {
+        if (unidadesAretirar >= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade a ser retirada deve ser diferente de 0.");
+        }
         quantidade_estoque = quantidade_estoque - unidadesAretirar;
     }
 
