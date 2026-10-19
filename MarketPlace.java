@@ -73,7 +73,7 @@ public class MarketPlace {
         int keyRead; 
         String[] result = new String[2]; 
 
-        try (RandomAccessFile raf = new RandomAccessFile("Store.bin", "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile("Stores.bin", "rw")) {
 
             while(true){
                 try {
@@ -98,11 +98,44 @@ public class MarketPlace {
 
     }
 
-    public static void exibirProdutos(int key){
+    public static void exibirLoja(int key){
 
-        // Exibe produtos de uma chave key de User_Extended
+        int keyRead;
+        byte removido;
+        String nome = new String();
+        String descricao = new String();
+        double preco;
+        int estoque, id;
 
+        try (RandomAccessFile raf = new RandomAccessFile("Products.bin", "rw")) {
+
+            raf.seek(8);
+            while (true) {
+                try {
+                    removido = raf.readByte();
+                    keyRead = raf.readInt();
+                    id = raf.readInt();
+                    preco = raf.readDouble();
+                    estoque = raf.readInt();
+                    nome = MarketPlace.lerString(raf);
+                    descricao = MarketPlace.lerString(raf, 100);
+
+                    if (removido == 1 || key != keyRead) {
+                        continue;
+                    }
+
+                    System.out.printf("%nProduto: %s%nPreço: %f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
+                            estoque, id, descricao);
+
+                } catch (EOFException e) {
+                    break;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
+
     // Métos estáticos auxiliares:
     public static void escreverString(RandomAccessFile raf, String texto) throws IOException {
         if (texto == null) {
@@ -122,6 +155,36 @@ public class MarketPlace {
 
     public static String lerString(RandomAccessFile raf) throws IOException {
         byte[] buffer = new byte[TAMANHO_STRING];
+        raf.readFully(buffer); // Garante a leitura de exatamente TAMANHO_STRING bytes
+        
+        // Determina o tamanho real da string até o primeiro byte nulo de preenchimento
+        int tamanhoReal = 0;
+        while (tamanhoReal < buffer.length && buffer[tamanhoReal] != 0) {
+            tamanhoReal++;
+        }
+
+        // Decodifica preservando eventuais espaços válidos e sem truncamento indevido
+        return new String(buffer, 0, tamanhoReal, StandardCharsets.UTF_8);
+    }
+
+    public static void escreverString(RandomAccessFile raf, String texto, int tam_bytes) throws IOException {
+        if (texto == null) {
+            texto = "";
+        }
+
+        byte[] bytesOriginal = texto.getBytes(StandardCharsets.UTF_8);
+        if (bytesOriginal.length > tam_bytes) {
+            throw new IllegalArgumentException("O texto excede o limite máximo de " + tam_bytes + " bytes!");
+        }
+
+        byte[] bufferFixo = new byte[tam_bytes];
+        System.arraycopy(bytesOriginal, 0, bufferFixo, 0, bytesOriginal.length);
+
+        raf.write(bufferFixo);
+    }
+
+    public static String lerString(RandomAccessFile raf, int tam_bytes) throws IOException {
+        byte[] buffer = new byte[tam_bytes];
         raf.readFully(buffer); // Garante a leitura de exatamente TAMANHO_STRING bytes
         
         // Determina o tamanho real da string até o primeiro byte nulo de preenchimento
