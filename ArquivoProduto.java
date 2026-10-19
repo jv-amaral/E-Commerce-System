@@ -1,5 +1,3 @@
-
-
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
@@ -13,11 +11,16 @@ public class ArquivoProduto {
     private static final int TAMANHO_STRING = 60;
     private static final int TAMANHO_DESCRICAO = 100;
     private static final int TAMANHO_CABECALHO = 8;
-    private static final int TAMANHO_REGISTRO = 181;
+
+    // flag + idProduto + idLoja + preco + estoque + nome + descricao
+    private static final int TAMANHO_REGISTRO = TAMANHO_INDICE_DE_REMOCAO + 2 * Integer.BYTES
+            + TAMANHO_STRING + Double.BYTES + Integer.BYTES + TAMANHO_DESCRICAO;
+
+    private static final byte FLAG_ATIVO = 0;
+    private static final byte FLAG_REMOVIDO = 1;
 
     // prepacao do arquivo
-    private void prepararArquivo(RandomAccessFile arquivo)
-            throws IOException {
+    private void prepararArquivo(RandomAccessFile arquivo) throws IOException {
         if (arquivo.length() == 0) {// se o arquivo estiver vazio
             arquivo.seek(0); // cursor é iniciado no byte 0 do cabecalho
             arquivo.writeInt(1); // proximo id de produto disponivel
@@ -25,20 +28,20 @@ public class ArquivoProduto {
         }
 
         // Confere se existem um cabecalho completo e registros completos
-        if (arquivo.length() < TAMANHO_CABECALHO || (arquivo.length() - TAMANHO_CABECALHO) % TAMANHO_REGISTRO != 0) {
-            throw new IOException("O arquivo de produtos tem formato inválido.");
+        if (arquivo.length() < TAMANHO_CABECALHO
+                || (arquivo.length() - TAMANHO_CABECALHO) % TAMANHO_REGISTRO != 0) {
+            throw new IOException("O arquivo não corresponde ao formato de registros de 181 bytes.");
         }
 
         // volta para o incio do arquivo
         arquivo.seek(0);
-
         int proximoIdProduto = arquivo.readInt();
         int topoPilha = arquivo.readInt();
 
         // condicao da pilha permanecera -1 nessa primeira entrega
         // para um proxixa, a pilha sera iniciada
         if (proximoIdProduto <= 0 || topoPilha != -1) {
-            throw new IOException("Cabeçalho inválido ou remoções ainda não suportadas.");
+            throw new IOException("Cabeçalho inválido ou pilha de remoções ainda não suportada.");
         }
     }
 
@@ -58,7 +61,6 @@ public class ArquivoProduto {
                     "O texto deve caber em " + tamanho + " bytes e não conter caractere nulo.");
         }
 
-
         // cria o campo fixo, inicialmente preenchido com zeros
         byte[] campo = new byte[tamanho];
 
@@ -66,49 +68,64 @@ public class ArquivoProduto {
         for (int i = 0; i < bytesTexto.length; i++) {
             campo[i] = bytesTexto[i];
         }
-
         return campo;
     }
 
     private String lerTexto(RandomAccessFile arquivo, int tamanho) throws IOException {
         byte[] campo = new byte[tamanho];
         arquivo.readFully(campo);
-
-        int tamanhoReal = tamanho;
-        while (tamanhoReal > 0 && campo[tamanhoReal - 1] == 0) {
-            tamanhoReal--;
+        int tamanhoReal = 0;
+        while (tamanhoReal < tamanho && campo[tamanhoReal] != 0) {
+            tamanhoReal++;
         }
-
         return new String(campo, 0, tamanhoReal, StandardCharsets.UTF_8);
     }
 
-    private void escreverRegistro(RandomAccessFile arquivo, Produto produto)
-            throws IOException {
-        // Valida todos os textos antes de escrever qualquer campo do registro
-        byte[] nome = prepararTexto(produto.getNome(), TAMANHO_STRING);
-        byte[] categoria = prepararTexto(produto.getCategoria(), TAMANHO_STRING);
-        byte[] descricao = prepararTexto(produto.getDescricao(), TAMANHO_DESCRICAO);
-
-        arquivo.writeInt(produto.getId());
-        arquivo.writeInt(produto.getIdLoja());
-        arquivo.write(nome);
-        arquivo.write(categoria);
-        arquivo.write(descricao);
-        arquivo.writeDouble(produto.getPreco());
-        arquivo.writeInt(produto.getQuantidade());
+    private byte lerFlag(RandomAccessFile arquivo) throws IOException {
+        byte flag = arquivo.readByte();
+        if (flag != FLAG_ATIVO && flag != FLAG_REMOVIDO) {
+            throw new IOException("Flag de remoção inválida.");
+        }
+        return flag;
     }
 
+    private void escreverRegistro(RandomAccessFile arquivo, Produto produto) throws IOException {
+        if (produto.getRemovido() != FLAG_ATIVO) {
+            throw new IllegalArgumentException("A remoção será implementada na próxima entrega.");
+        }
+
+        // Valida todos os textos antes de escrever qualquer campo do registro
+        byte[] nome = prepararTexto(produto.getNome(), TAMANHO_STRING);
+        byte[] descricao = prepararTexto(produto.getDescricao(), TAMANHO_DESCRICAO);
+
+        arquivo.writeByte(produto.getRemovido());
+        arquivo.writeInt(produto.getIdProduto());
+        arquivo.writeInt(produto.getIdLoja());
+        arquivo.writeDouble(produto.getPreco());
+        arquivo.writeInt(produto.getQuantidade());
+        arquivo.write(nome);
+        arquivo.write(descricao);
+    }
+
+    // Retorna null para um registro marcado como removido
     private Produto lerRegistro(RandomAccessFile arquivo) throws IOException {
-        int id = arquivo.readInt();
+        long inicio = arquivo.getFilePointer();
+        byte flag = lerFlag(arquivo);
+
+        if (flag == FLAG_REMOVIDO) {
+            arquivo.seek(inicio + TAMANHO_REGISTRO);
+            return null;
+        }
+
+        int idProduto = arquivo.readInt();
         int idLoja = arquivo.readInt();
-        String nome = lerTexto(arquivo, TAMANHO_STRING);
-        String categoria = lerTexto(arquivo, TAMANHO_STRING);
-        String descricao = lerTexto(arquivo, TAMANHO_DESCRICAO);
         double preco = arquivo.readDouble();
         int quantidade = arquivo.readInt();
+        String nome = lerTexto(arquivo, TAMANHO_STRING);
+        String descricao = lerTexto(arquivo, TAMANHO_DESCRICAO);
 
         try {
-            return new Produto(nome, categoria, descricao, preco, quantidade, id, idLoja);
+            return new Produto(flag, nome, descricao, preco, quantidade, idProduto, idLoja);
         } catch (IllegalArgumentException erro) {
             throw new IOException("O registro contém dados de produto inválidos.", erro);
         }
@@ -119,23 +136,22 @@ public class ArquivoProduto {
             throw new IllegalArgumentException("O ID deve ser maior que zero.");
         }
 
-        for (long posicao = TAMANHO_CABECALHO; posicao < arquivo.length(); posicao += TAMANHO_REGISTRO) {
+        for (long posicao = TAMANHO_CABECALHO;
+                posicao < arquivo.length(); posicao += TAMANHO_REGISTRO) {
             arquivo.seek(posicao);
-            if (arquivo.readInt() == id) {
+            byte flag = lerFlag(arquivo);
+            if (flag == FLAG_ATIVO && arquivo.readInt() == id) {
                 return posicao;
             }
         }
-
         throw new IllegalArgumentException("Produto não encontrado: " + id);
     }
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
-    public Produto cadastrar(String nome, String categoria, String descricao,
-            double preco, int quantidadeEstoque, int idLoja)
-            throws IOException {
+    public Produto cadastrar(String nome, String descricao, double preco,
+                             int quantidadeEstoque, int idLoja) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
-
             arquivo.seek(0);
             int idGerado = arquivo.readInt();
 
@@ -144,14 +160,12 @@ public class ArquivoProduto {
             }
 
             Produto produto = new Produto(
-                    nome, categoria, descricao, preco, quantidadeEstoque, idGerado, idLoja);
+                    FLAG_ATIVO, nome, descricao, preco, quantidadeEstoque, idGerado, idLoja);
 
             arquivo.seek(arquivo.length());
             escreverRegistro(arquivo, produto);
-
             arquivo.seek(0);
             arquivo.writeInt(idGerado + 1);
-
             return produto;
         }
     }
@@ -167,16 +181,16 @@ public class ArquivoProduto {
 
     public List<Produto> listarTodos() throws IOException {
         List<Produto> produtos = new ArrayList<>();
-
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
             arquivo.seek(TAMANHO_CABECALHO);
-
             while (arquivo.getFilePointer() < arquivo.length()) {
-                produtos.add(lerRegistro(arquivo));
+                Produto produto = lerRegistro(arquivo);
+                if (produto != null) {
+                    produtos.add(produto);
+                }
             }
         }
-
         return produtos;
     }
 
@@ -184,14 +198,12 @@ public class ArquivoProduto {
         if (idLoja <= 0) {
             throw new IllegalArgumentException("O ID da loja deve ser maior que zero.");
         }
-
         List<Produto> produtosDaLoja = new ArrayList<>();
         for (Produto produto : listarTodos()) {
             if (produto.getIdLoja() == idLoja) {
                 produtosDaLoja.add(produto);
             }
         }
-
         return produtosDaLoja;
     }
 
@@ -200,15 +212,14 @@ public class ArquivoProduto {
         if (produto == null) {
             throw new IllegalArgumentException("O produto não pode ser nulo.");
         }
-
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
-            long posicao = localizarRegistro(arquivo, produto.getId());
+            long posicao = localizarRegistro(arquivo, produto.getIdProduto());
+            arquivo.seek(posicao);
+            Produto original = lerRegistro(arquivo);
 
-            arquivo.seek(posicao + Integer.BYTES);
-            int idLojaOriginal = arquivo.readInt();
-            if (idLojaOriginal != produto.getIdLoja()) {
-                throw new IllegalArgumentException("Não é possível transferir o produto de loja.");
+            if (original.getIdLoja() != produto.getIdLoja()) {
+                throw new IllegalArgumentException("Não é possível trocar a loja do produto.");
             }
 
             arquivo.seek(posicao);
