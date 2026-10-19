@@ -12,7 +12,7 @@ class FuncionalidadeInvalidaException extends Exception {
 
 public class User {
 
-    // Strings com no máximo 20 chars 
+    // Strings com no máximo 60 bytes
 
     private int key;  
     private String password; 
@@ -60,6 +60,7 @@ public class User {
 
             while(true){
                 try {
+
                     
 
 
@@ -89,7 +90,35 @@ public class User {
 
     static protected void exibirLojas(){
 
-    }
+        String name; 
+        String category; 
+
+        try (RandomAccessFile raf = new RandomAccessFile("Stores.bin", "rw")) {
+
+            while(true){
+                try {
+                    
+                    raf.skipBytes(4);
+                    name = MarketPlace.lerString(raf);
+                    category = MarketPlace.lerString(raf);
+
+                    System.out.printf("%nLoja: %s%nCategoria: %s%n", name, category); 
+
+                } catch (EOFException e){
+                    break;
+                }
+
+
+
+
+
+
+
+            }
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+    }  
 
     protected void exibirCarrinho(){
 
@@ -148,7 +177,7 @@ public class User {
 
 class UserExtended extends User {
 
-    // Strings com no máximo 20 chars 
+    // Strings com no máximo 60 bytes 
 
     private String storeName; 
     private String storeCategory; 

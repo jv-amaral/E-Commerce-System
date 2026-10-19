@@ -18,8 +18,8 @@ class DadosNaoEncontradosException extends Exception {
 
 public class MarketPlace {
     
-    private static int TAMANHO_STRING = 20; 
-    private static int TAM_REG_USUARIO = 46;
+    private static int TAMANHO_STRING = 60; 
+    //private static int TAM_REG_USUARIO = 
     
     // Métodos estáticos principais: 
     private static User readUsersData(int key, String password) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException{
@@ -58,7 +58,7 @@ public class MarketPlace {
 
                         return user; 
                     }
-                    raf.skipBytes(42); // pula para o próximo registro
+                    raf.skipBytes(82); // pula para o próximo registro
 
                 } catch(EOFException e){
                     break;
@@ -85,7 +85,9 @@ public class MarketPlace {
                         result[1] = lerString(raf); 
                         return result;
 
-                    }
+                    }   
+                    raf.skipBytes(120);
+
 
                 } catch (EOFException e){
                     break;
@@ -96,28 +98,39 @@ public class MarketPlace {
 
     }
 
+    public static void exibirProdutos(int key){
+
+        // Exibe produtos de uma chave key de User_Extended
+
+    }
     // Métos estáticos auxiliares:
     public static void escreverString(RandomAccessFile raf, String texto) throws IOException {
+        if (texto == null) {
+            texto = "";
+        }
 
         byte[] bytesOriginal = texto.getBytes(StandardCharsets.UTF_8);
-        byte[] bufferFixo = new byte[TAMANHO_STRING];
+        if (bytesOriginal.length > TAMANHO_STRING) {
+            throw new IllegalArgumentException("O texto excede o limite máximo de " + TAMANHO_STRING + " bytes!");
+        }
 
-        // Copia os bytes da string truncando se ultrapassar o limite fixo
-        int bytesParaCopiar = Math.min(bytesOriginal.length, TAMANHO_STRING);
-        System.arraycopy(bytesOriginal, 0, bufferFixo, 0, bytesParaCopiar);
+        byte[] bufferFixo = new byte[TAMANHO_STRING];
+        System.arraycopy(bytesOriginal, 0, bufferFixo, 0, bytesOriginal.length);
 
         raf.write(bufferFixo);
     }
 
     public static String lerString(RandomAccessFile raf) throws IOException {
-
         byte[] buffer = new byte[TAMANHO_STRING];
-        raf.readFully(buffer); // Garante a leitura de exatamente TAMANHO_STRING_BYTES
+        raf.readFully(buffer); // Garante a leitura de exatamente TAMANHO_STRING bytes
         
-        // Converte e remove os bytes nulos/espaços de preenchimento
-        return new String(buffer, StandardCharsets.UTF_8).trim();
+        // Determina o tamanho real da string até o primeiro byte nulo de preenchimento
+        int tamanhoReal = 0;
+        while (tamanhoReal < buffer.length && buffer[tamanhoReal] != 0) {
+            tamanhoReal++;
+        }
+
+        // Decodifica preservando eventuais espaços válidos e sem truncamento indevido
+        return new String(buffer, 0, tamanhoReal, StandardCharsets.UTF_8);
     }
-
-
-
 }
