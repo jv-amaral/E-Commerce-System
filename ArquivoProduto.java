@@ -52,7 +52,7 @@ public class ArquivoProduto {
         // texto e codificado para UTF-8, e eh guardado no vetor de bytes
         byte[] bytesTexto = texto.getBytes(StandardCharsets.UTF_8);
 
-            
+        // se o texto codificado for maior que o espaco definido, o erro sera tratado
         if (bytesTexto.length > tamanho || texto.indexOf('\0') >= 0) {
             throw new IllegalArgumentException(
                     "O texto deve caber em " + tamanho + " bytes e não conter caractere nulo.");
