@@ -9,11 +9,12 @@ public class Produto {
     private double preco;
     private int quantidade_estoque;
     private int id;
+    private int idLoja;
 
     // construtor da classe
     // implementados com o tratamento de erro
     public Produto(String nome, String categoria_produto, String descricao,
-            double preco, int quantidade_estoque, int id) {
+            double preco, int quantidade_estoque, int id, int idLoja) {
 
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException(
@@ -56,6 +57,13 @@ public class Produto {
         }
 
         this.id = id;
+
+        if (idLoja <= 0) {
+            throw new IllegalArgumentException(
+                    "O identificador da loja deve ser maior que zero.");
+        }
+
+        this.idLoja = idLoja;
     }
 
     // implementacao dos metodos
@@ -82,6 +90,10 @@ public class Produto {
 
     public int getId() {
         return id;
+    }
+
+    public int getIdLoja() {
+        return idLoja;
     }
 
     // metodos utilziados na troca de paramentros, como nome, categoria etc
