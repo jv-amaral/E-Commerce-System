@@ -9,10 +9,11 @@ import java.util.List;
 public class ArquivoProduto {
 
     private static final String NOME_ARQUIVO = "Products.bin";
+    private static final int TAMANHO_INDICE_DE_REMOCAO = 1;
     private static final int TAMANHO_STRING = 60;
     private static final int TAMANHO_DESCRICAO = 100;
     private static final int TAMANHO_CABECALHO = 8;
-    private static final int TAMANHO_REGISTRO = 240;
+    private static final int TAMANHO_REGISTRO = 181;
 
     // prepacao do arquivo
     private void prepararArquivo(RandomAccessFile arquivo)

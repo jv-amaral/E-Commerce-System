@@ -1,10 +1,9 @@
 
-
 //definicao da classe produto
 
 public class Produto {
+    private char removido; // sera usada futuramente
     private String nome;
-    private String categoria_produto;
     private String descricao;
     private double preco;
     private int quantidade_estoque;
@@ -12,21 +11,16 @@ public class Produto {
 
     // construtor da classe
     // implementados com o tratamento de erro
-    public Produto(String nome, String categoria_produto, String descricao,
+    public Produto(char removido, String nome, String descricao,
             double preco, int quantidade_estoque, int id) {
+
+        this.removido = removido;
 
         if (nome == null || nome.isBlank()) {
             throw new IllegalArgumentException(
                     "O nome não pode ser vazio.");
         } else {
             this.nome = nome;
-        }
-
-        if (categoria_produto == null || categoria_produto.isBlank()) {
-            throw new IllegalArgumentException(
-                    "A categoria não pode ser vazia.");
-        } else {
-            this.categoria_produto = categoria_produto;
         }
 
         if (descricao == null || descricao.isBlank()) {
@@ -60,12 +54,12 @@ public class Produto {
 
     // implementacao dos metodos
 
-    public String getNome() {
-        return nome;
+    public char getRemobido() {
+        return removido;
     }
 
-    public String getCategoria() {
-        return categoria_produto;
+    public String getNome() {
+        return nome;
     }
 
     public String getDescricao() {
@@ -100,7 +94,7 @@ public class Produto {
         idProduto = novoIdProduto;
     }
 
-    // metodos utilziados na troca de paramentros, como nome, categoria etc
+    // metodos utilziados na troca de paramentros, como nome, etc
     // eles foram feitos com o tratamento de erro, para evitar falhas no programa
     public void setNome(String novoNome) {
         if (novoNome == null || novoNome.isBlank()) {
@@ -108,14 +102,6 @@ public class Produto {
                     "O nome não pode ser vazio.");
         }
         nome = novoNome;
-    }
-
-    public void setCategoria(String novaCategoria) {
-        if (novaCategoria == null || novaCategoria.isBlank()) {
-            throw new IllegalArgumentException(
-                    "A Categoria não pode ser vazia.");
-        }
-        categoria_produto = novaCategoria;
     }
 
     public void setDescricao(String novaDescricao) {
