@@ -153,14 +153,15 @@ public class ArquivoProduto {
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
     public Produto cadastrar(String nome, String descricao, double preco,
-                             int quantidadeEstoque, int idLoja) throws IOException {
+                             int quantidadeEstoque, int idLoja) {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
             arquivo.seek(0);
             int idGerado = arquivo.readInt();
 
             if (idGerado == Integer.MAX_VALUE) {
-                throw new IllegalStateException("O contador de IDs atingiu o limite.");
+                System.out.print("O contador de IDs atingiu o limite.");
+                System.exit(1);
             }
 
             Produto produto = new Produto(
@@ -171,6 +172,9 @@ public class ArquivoProduto {
             arquivo.seek(0);
             arquivo.writeInt(idGerado + 1);
             return produto;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
@@ -204,7 +208,7 @@ public class ArquivoProduto {
         }
         List<Produto> produtosDaLoja = new ArrayList<>();
         for (Produto produto : listarTodos()) {
-            if (produto.getIdLoja() == idLoja) {
+            if (produto.getIdUsuario() == idLoja) {
                 produtosDaLoja.add(produto);
             }
         }
@@ -222,7 +226,7 @@ public class ArquivoProduto {
             arquivo.seek(posicao);
             Produto original = lerRegistro(arquivo);
 
-            if (original.getIdLoja() != produto.getIdLoja()) {
+            if (original.getIdUsuario() != produto.getIdUsuario()) {
                 throw new IllegalArgumentException("Não é possível trocar a loja do produto.");
             }
 
