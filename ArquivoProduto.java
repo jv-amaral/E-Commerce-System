@@ -64,23 +64,26 @@ public class ArquivoProduto {
         // cria o campo fixo, inicialmente preenchido com zeros
         byte[] campo = new byte[tamanho];
 
-        // copia o conteúdo do texto para o campo
+        // copia o conteúdo do texto para o campo e o resto fica com 0
         for (int i = 0; i < bytesTexto.length; i++) {
             campo[i] = bytesTexto[i];
         }
         return campo;
     }
 
+    // metodo usado para ler um campo, comecando a leitura na posicao atual
     private String lerTexto(RandomAccessFile arquivo, int tamanho) throws IOException {
         byte[] campo = new byte[tamanho];
         arquivo.readFully(campo);
         int tamanhoReal = 0;
+        //descobre o quanto do vetor eh realmente texto
         while (tamanhoReal < tamanho && campo[tamanhoReal] != 0) {
             tamanhoReal++;
         }
         return new String(campo, 0, tamanhoReal, StandardCharsets.UTF_8);
     }
 
+    // vai ler apenas um byte, que vai ver se esta removido ou nao
     private byte lerFlag(RandomAccessFile arquivo) throws IOException {
         byte flag = arquivo.readByte();
         if (flag != FLAG_ATIVO && flag != FLAG_REMOVIDO) {
@@ -89,6 +92,7 @@ public class ArquivoProduto {
         return flag;
     }
 
+    // metodo que ira escrever os registros
     private void escreverRegistro(RandomAccessFile arquivo, Produto produto) throws IOException {
         if (produto.getRemovido() != FLAG_ATIVO) {
             throw new IllegalArgumentException("A remoção será implementada na próxima entrega.");
@@ -99,8 +103,8 @@ public class ArquivoProduto {
         byte[] descricao = prepararTexto(produto.getDescricao(), TAMANHO_DESCRICAO);
 
         arquivo.writeByte(produto.getRemovido());
+        arquivo.writeInt(produto.getIdUsuario());
         arquivo.writeInt(produto.getIdProduto());
-        arquivo.writeInt(produto.getIdLoja());
         arquivo.writeDouble(produto.getPreco());
         arquivo.writeInt(produto.getQuantidade());
         arquivo.write(nome);

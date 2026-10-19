@@ -7,12 +7,12 @@ public class Produto {
     private double preco;
     private int quantidade_estoque;
     private int idProduto;
-    private int idLoja;
+    private int idUsuario;
 
     // construtor da classe
     // implementados com o tratamento de erro
-    public Produto(byte removido, String nome, String descricao, double preco,
-                   int quantidade_estoque, int idProduto, int idLoja) {
+    public Produto(byte removido, String nome, String descricao, double preco, int quantidade_estoque, int idProduto,
+            int idUsuario) {
         if (removido != 0 && removido != 1) {
             throw new IllegalArgumentException("A flag deve ser 0 (ativo) ou 1 (removido).");
         }
@@ -46,12 +46,12 @@ public class Produto {
             throw new IllegalArgumentException("O identificador deve ser maior que zero.");
         }
 
-        if (idLoja <= 0) {
-            throw new IllegalArgumentException("O identificador da loja deve ser maior que zero.");
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("O identificador do usuário deve ser maior que zero.");
         }
 
         this.idProduto = idProduto;
-        this.idLoja = idLoja;
+        this.idUsuario = idUsuario;
     }
 
     // implementacao dos metodos
@@ -80,8 +80,8 @@ public class Produto {
         return idProduto;
     }
 
-    public int getIdLoja() {
-        return idLoja;
+    public int getIdUsuario() {
+        return idUsuario;
     }
 
     public void setQuantidadeEstoque(int novaQuantidade) {
