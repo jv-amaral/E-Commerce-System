@@ -14,45 +14,54 @@ public class ArquivoProduto {
     private static final int TAMANHO_CABECALHO = 8;
     private static final int TAMANHO_REGISTRO = 240;
 
-    private void prepararArquivo(RandomAccessFile arquivo) throws IOException {
-        if (arquivo.length() == 0) {
-            arquivo.seek(0);        //cursor é iniciado no byte 0 do cabecalho
-            arquivo.writeInt(1);    //proximo id de produto disponivel
-            arquivo.writeInt(-1);   //inicio da futura pilha
+    // prepacao do arquivo
+    private void prepararArquivo(RandomAccessFile arquivo)
+            throws IOException {
+        if (arquivo.length() == 0) {// se o arquivo estiver vazio
+            arquivo.seek(0); // cursor é iniciado no byte 0 do cabecalho
+            arquivo.writeInt(1); // proximo id de produto disponivel
+            arquivo.writeInt(-1); // inicio da futura pilha
         }
 
         // Confere se existem um cabecalho completo e registros completos
-        if (arquivo.length() < TAMANHO_CABECALHO
-                || (arquivo.length() - TAMANHO_CABECALHO)
-                % TAMANHO_REGISTRO != 0) {
+        if (arquivo.length() < TAMANHO_CABECALHO || (arquivo.length() - TAMANHO_CABECALHO) % TAMANHO_REGISTRO != 0) {
             throw new IOException("O arquivo de produtos tem formato inválido.");
         }
 
+        // volta para o incio do arquivo
         arquivo.seek(0);
-        int proximoId = arquivo.readInt();
+
+        int proximoIdProduto = arquivo.readInt();
         int topoPilha = arquivo.readInt();
 
-        if (proximoId <= 0 || topoPilha != -1) {
+        // condicao da pilha permanecera -1 nessa primeira entrega
+        // para um proxixa, a pilha sera iniciada
+        if (proximoIdProduto <= 0 || topoPilha != -1) {
             throw new IOException("Cabeçalho inválido ou remoções ainda não suportadas.");
         }
     }
 
+    // transformar string em campo fixo com tratamento de erro
     private byte[] prepararTexto(String texto, int tamanho) {
+        // recebe uma string com o seu tamanho para ransformar em um vetor de bytes
         if (texto == null || texto.isBlank()) {
             throw new IllegalArgumentException("O texto não pode estar vazio.");
         }
 
+        // texto e codificado para UTF-8, e eh guardado no vetor de bytes
         byte[] bytesTexto = texto.getBytes(StandardCharsets.UTF_8);
 
+            
         if (bytesTexto.length > tamanho || texto.indexOf('\0') >= 0) {
             throw new IllegalArgumentException(
                     "O texto deve caber em " + tamanho + " bytes e não conter caractere nulo.");
         }
 
-        // Cria o campo fixo, inicialmente preenchido com zeros
+
+        // cria o campo fixo, inicialmente preenchido com zeros
         byte[] campo = new byte[tamanho];
 
-        // Copia o conteúdo do texto para o campo
+        // copia o conteúdo do texto para o campo
         for (int i = 0; i < bytesTexto.length; i++) {
             campo[i] = bytesTexto[i];
         }
@@ -109,8 +118,7 @@ public class ArquivoProduto {
             throw new IllegalArgumentException("O ID deve ser maior que zero.");
         }
 
-        for (long posicao = TAMANHO_CABECALHO;
-                posicao < arquivo.length(); posicao += TAMANHO_REGISTRO) {
+        for (long posicao = TAMANHO_CABECALHO; posicao < arquivo.length(); posicao += TAMANHO_REGISTRO) {
             arquivo.seek(posicao);
             if (arquivo.readInt() == id) {
                 return posicao;
@@ -122,7 +130,7 @@ public class ArquivoProduto {
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
     public Produto cadastrar(String nome, String categoria, String descricao,
-                             double preco, int quantidadeEstoque, int idLoja)
+            double preco, int quantidadeEstoque, int idLoja)
             throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
