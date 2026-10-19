@@ -3,6 +3,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import Market
 
 class FuncionalidadeInvalidaException extends Exception {
     public FuncionalidadeInvalidaException(String mensagem) {
@@ -152,23 +153,6 @@ public class User {
             case 4: 
                 System.exit(0);
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     }
 
