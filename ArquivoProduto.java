@@ -20,7 +20,7 @@ public class ArquivoProduto {
     private static final byte FLAG_REMOVIDO = 1;
 
     // prepacao do arquivo
-    private void prepararArquivo(RandomAccessFile arquivo) throws IOException {
+    private static void prepararArquivo(RandomAccessFile arquivo) throws IOException {
         if (arquivo.length() == 0) {// se o arquivo estiver vazio
             arquivo.seek(0); // cursor é iniciado no byte 0 do cabecalho
             arquivo.writeInt(1); // proximo id de produto disponivel
@@ -46,7 +46,7 @@ public class ArquivoProduto {
     }
 
     // transformar string em campo fixo com tratamento de erro
-    private byte[] prepararTexto(String texto, int tamanho) {
+    private static byte[] prepararTexto(String texto, int tamanho) {
         // recebe uma string com o seu tamanho para ransformar em um vetor de bytes
         if (texto == null || texto.isBlank()) {
             throw new IllegalArgumentException("O texto não pode estar vazio.");
@@ -93,7 +93,7 @@ public class ArquivoProduto {
     }
 
     // metodo que ira escrever os registros
-    private void escreverRegistro(RandomAccessFile arquivo, Produto produto) throws IOException {
+    private static void escreverRegistro(RandomAccessFile arquivo, Produto produto) throws IOException {
         if (produto.getRemovido() != FLAG_ATIVO) {
             throw new IllegalArgumentException("A remoção será implementada na próxima entrega.");
         }
