@@ -258,24 +258,51 @@ public class ArquivoProduto {
         }
     }
 
-    public static void remover_registro(RandomAccessFile arquivo, int idProduto) {
+    public static boolean remover_registro(RandomAccessFile arquivo, int idProduto, int key) {
         try {
             prepararArquivo(arquivo);
             long posicao = localizarRegistro(arquivo, idProduto);
+
+            // 1. Verifica se o produto já foi removido anteriormente
+            arquivo.seek(posicao);
+            byte flag = lerFlag(arquivo);
+            if (flag == FLAG_REMOVIDO) {
+                System.out.println("Este produto já foi removido anteriormente!");
+                return false;
+            }
+
+            // 2. Verifica se o produto pertence ao vendedor autenticado
+            arquivo.seek(posicao + 1);
+            int keyRead = arquivo.readInt(); 
+            if (key != keyRead) {
+                System.out.println("Você não pode remover este produto! Ele pertence a outro vendedor."); 
+                return false; 
+            }
+
+            // 3. Marca como removido no arquivo
             arquivo.seek(posicao);
             arquivo.writeByte(FLAG_REMOVIDO);
+            return true;
+
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
+            return false;
         }
     }
 
-    public static void remover_registro(int idProduto) {
+    public static boolean remover_registro(int idProduto, int key) {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
-            remover_registro(arquivo, idProduto);
+            boolean removido = remover_registro(arquivo, idProduto, key);
+            if (removido) {
+                System.out.println("Produto ID " + idProduto + " removido com sucesso!");
+            }
+            return removido;
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
     }
 }

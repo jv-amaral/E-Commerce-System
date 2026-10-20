@@ -213,6 +213,8 @@ public class User {
 
                 if (removido == 0 && idLido == idProduto) {
                     this.cartProductsRRN[posLivre] = rrn;
+                    userDataSaving(); // Persiste a adição imediatamente em Users.bin
+
                     System.out.printf("Produto ID %d adicionado ao carrinho!%n", idProduto);
                     return true;
                 }
@@ -242,7 +244,7 @@ public class User {
             return false;
         }
 
-        try (RandomAccessFile raf = new RandomAccessFile("Products.bin", "rw")) {
+        try (RandomAccessFile raf = new RandomAccessFile("Products.bin", "r")) {
             for (int i = 0; i < this.cartProductsRRN.length; i++) {
                 int rrn = this.cartProductsRRN[i];
                 if (rrn == -1) {
@@ -260,12 +262,11 @@ public class User {
                 int idLido = raf.readInt();
 
                 if (idLido == idProduto) {
-                    // 1. Muda a flag de removido para 1 no arquivo (1 byte no início do registro)
-                    raf.seek(posRegistro);
-                    raf.writeByte(1);
-
-                    // 2. Coloca o RRN referente ao removido na lista cartProductsRRN como -1
+                    // 1. Atualiza no objeto em memória (posição volta a ser -1)
                     this.cartProductsRRN[i] = -1;
+
+                    // 2. Atualiza imediatamente no arquivo Users.bin logo após o tipo de usuário
+                    userDataSaving();
 
                     System.out.printf("Produto ID %d removido do carrinho com sucesso!%n", idProduto);
                     return true;
@@ -472,8 +473,9 @@ class UserExtended extends User {
                         System.err.println("ID deve ser maior que zero!");
                         continue; 
                     }
-                    ArquivoProduto.remover_registro(id);
-                    System.out.println("Produto ID " + id + " removido com sucesso!");
+                    
+                    ArquivoProduto.remover_registro(id, key);
+                
                 } catch (Exception e) {
                     System.err.println("ID inválido!");
                     input.nextLine();
