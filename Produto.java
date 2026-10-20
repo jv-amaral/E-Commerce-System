@@ -124,26 +124,4 @@ public class Produto {
         }
         preco = novoPreco;
     }
-
-    public void adicionarEstoque(int unidadesAacrescentar) {
-        if (unidadesAacrescentar <= 0) {
-            throw new IllegalArgumentException(
-                    "A quantidade a ser acrescentada deve ser maior que zero.");
-        }
-        if (unidadesAacrescentar > Integer.MAX_VALUE - quantidade_estoque) {
-            throw new IllegalArgumentException("A quantidade ultrapassa o limite do estoque.");
-        }
-        quantidade_estoque = quantidade_estoque + unidadesAacrescentar;
-    }
-
-    public void retirarEstoque(int unidadesAretirar) {
-        if (unidadesAretirar <= 0) {
-            throw new IllegalArgumentException(
-                    "A quantidade a ser retirada deve ser maior que zero.");
-        }
-        if (unidadesAretirar > quantidade_estoque) {
-            throw new IllegalArgumentException("Estoque insuficiente.");
-        }
-        quantidade_estoque = quantidade_estoque - unidadesAretirar;
-    }
 }

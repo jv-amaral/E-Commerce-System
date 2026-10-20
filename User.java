@@ -683,7 +683,7 @@ class UserExtended extends User {
                                     + "[1] Nome\n"
                                     + "[2] Descrição\n"
                                     + "[3] Preço\n"
-                                    + "[4] Quantidade em estoque\n"
+                                    + "[4] Definir estoque total\n"
                                     + "Opção: ");
 
                     int opcao = Integer.parseInt(input.nextLine().trim());
@@ -707,7 +707,7 @@ class UserExtended extends User {
                             break;
 
                         case 4:
-                            System.out.print("Nova quantidade em estoque: ");
+                            System.out.print("Novo total em estoque: ");
                             int novaQuantidade = Integer.parseInt(
                                     input.nextLine().trim());
                             produto.setQuantidadeEstoque(novaQuantidade);
