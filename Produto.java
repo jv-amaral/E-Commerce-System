@@ -84,6 +84,10 @@ public class Produto {
         return idUsuario;
     }
 
+    public int getIdLoja() {
+        return idUsuario;
+    }
+
     public void setQuantidadeEstoque(int novaQuantidade) {
         if (novaQuantidade < 0) {
             throw new IllegalArgumentException("A quantidade em estoque não pode ser negativa.");

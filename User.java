@@ -408,13 +408,44 @@ class UserExtended extends User {
 
         System.out.print("\nUse addproduct para adicionar um produto\nUse remproduct para remover um produto\nUse editproduct para editar um produto\n[1] Voltar\n");
         Scanner input = new Scanner(System.in);
+        String name = new String(); 
+        String descricao = new String(); 
+        double preco; 
+        int estoque; 
 
         while (true) {
             String comando = input.next();
             if (comando.equals("addproduct")) {
-                int key = input.nextInt(); 
-                MarketPlace.exibirLoja(key);
-            } else if (comando.equals("1")) {
+
+                System.out.println("Digite o nome do produto"); 
+                name = input.next(); 
+                System.out.println("Digite a descricao do produto");
+                descricao = input.next(); 
+                System.out.println("Digite o preço do produto");
+                preco = input.nextDouble();
+                System.out.println("Digite o estoque do produto");
+                estoque = input.nextInt(); 
+
+                byte[] bytes = name.getBytes();
+                int bytesName = bytes.length;
+
+                bytes = descricao.getBytes(); 
+                int bytesDesc = bytes.length; 
+
+                if (bytesName >  60 || bytesDesc > 100 || preco < 0.f || estoque < 0){
+                    System.err.println("Dados inválidos!");
+                    continue; 
+                }
+                ArquivoProduto.cadastrar(name, descricao, preco, estoque, this.key);  
+
+            }else if (comando.equals("remproduct")){
+
+                System.out.println("Digite o ID do produto");
+                
+
+            }
+
+            else if (comando.equals("1")) {
                 break;
             }
         }

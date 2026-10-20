@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
 
 class SenhaIncorretaException extends Exception {
     public SenhaIncorretaException(String mensagem) {
@@ -22,36 +23,43 @@ public class MarketPlace {
     //private static int TAM_REG_USUARIO = 
     
     // Métodos estáticos principais: 
-    private static User readUsersData(int key, String password) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException{
+    public static User readUserData(User user, int key, String password) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException {
 
         File arq = new File("Users.bin");
         int keyRead, RRNread; 
         String passwordRead; //senha a ser lida no arquivo 
         char userType; 
-        User user; 
 
-        try (RandomAccessFile raf = new RandomAccessFile(arq,"rw")){
+        try (RandomAccessFile raf = new RandomAccessFile(arq, "r")) {
 
-            while (true){
-                try{
+            while (true) {
+                try {
                     keyRead = raf.readInt(); 
 
-                    if (keyRead == key){ 
+                    if (keyRead == key) { 
 
                         passwordRead = lerString(raf); 
 
-                        if (!passwordRead.equals(password)){
+                        if (!passwordRead.equals(password)) {
                             throw new SenhaIncorretaException("Senha incorreta!");
                         }
 
                         userType = raf.readChar(); 
-                        if (userType == '0'){
+
+                        if (userType == '0') {
                             user = new User(key, password);
                         } else {
                             user = new UserExtended(key, password);
+                            try {
+                                String[] loja = readStoreNameAndCategory(key);
+                                ((UserExtended) user).setStoreName(loja[0]);
+                                ((UserExtended) user).setStoreCategory(loja[1]);
+                            } catch (DadosNaoEncontradosException e) {
+                                // Loja não cadastrada ainda
+                            }
                         }
 
-                        for (int i = 0; i < 5; i++){
+                        for (int i = 0; i < 5; i++) {
                             RRNread = raf.readInt(); 
                             user.setCartProductsRRN(RRNread, i);
                         }
@@ -60,7 +68,7 @@ public class MarketPlace {
                     }
                     raf.skipBytes(82); // pula para o próximo registro
 
-                } catch(EOFException e){
+                } catch (EOFException e) {
                     break;
                 }
             }
@@ -68,7 +76,60 @@ public class MarketPlace {
         }
     }
 
-    public static String[] readStoreNameAndCategory(int key) throws IOException, DadosNaoEncontradosException{
+    public static void readUserData(User user) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException {
+        readUserData(user, user.getKey(), user.getPassword());
+    }
+
+    public static User readUsersData(User user, int key, String password) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException {
+        return readUserData(user, key, password);
+    }
+
+    public static User readUsersData(int key, String password) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException {
+        return readUserData(null, key, password);
+    }
+
+    public static void readUsersData(User user) throws IOException, SenhaIncorretaException, DadosNaoEncontradosException {
+        readUserData(user);
+    }
+
+    // Método para criar uma conta e salvar como registro em Users.bin (e Stores.bin para lojista):
+    public static User criarConta(int tipoConta, int key, String password, String storeName, String storeCategory) throws IOException {
+        File arq = new File("Users.bin");
+
+        if (arq.exists()) {
+            try (RandomAccessFile raf = new RandomAccessFile(arq, "r")) {
+                while (true) {
+                    try {
+                        int keyRead = raf.readInt();
+                        if (keyRead == key) {
+                            System.out.println("Erro: Já existe um usuário cadastrado com este CPF/chave!");
+                            return null;
+                        }
+                        raf.skipBytes(82);
+                    } catch (EOFException e) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        User user;
+        if (tipoConta == 0) {
+            user = new User(key, password);
+        } else {
+            user = new UserExtended(key, password, storeName, storeCategory);
+        }
+        user.newUserDataSaving();
+
+        System.out.println("Conta criada com sucesso!");
+        return user;
+    }
+
+    public static User criarConta(int tipoConta, int key, String password) throws IOException {
+        return criarConta(tipoConta, key, password, "NILL", "NILL");
+    }
+
+    public static String[] readStoreNameAndCategory(int key) throws IOException, DadosNaoEncontradosException {
 
         int keyRead; 
         String[] result = new String[2]; 
@@ -136,6 +197,70 @@ public class MarketPlace {
         }
     }
 
+    public static void painelLogIn(){
+
+        Scanner input = new Scanner(System.in);
+        System.out.println("MARKETPLACE SYSTEM\n\n[1] Log-in\n[2] Sing-in");
+        User user = null; 
+
+        int aux = input.nextInt(); 
+        if (aux < 1 || aux > 2){
+            painelLogIn();
+            return; 
+        }
+
+        if (aux == 1){
+            String senha = new String(); 
+            int key; 
+            System.out.print("Digite seu CPF");
+            key = input.nextInt(); 
+            System.out.println("Digite a senha");
+            senha = input.next(); 
+
+            try {
+                user = readUserData(user, key, senha); 
+            } catch (IOException e){
+                e.printStackTrace(); 
+            } catch (DadosNaoEncontradosException e){
+                System.out.println("Dados não encontrados!"); 
+                painelLogIn();
+                return;
+            } catch (SenhaIncorretaException e){
+                System.out.println("Senha incorreta!");
+                painelLogIn();
+                return; 
+            }
+        } else {
+            System.out.println("Selecione o tipo de conta:\n[0] Cliente\n[1] Lojista");
+            int tipoConta = input.nextInt();
+            System.out.print("Digite seu CPF: ");
+            int key = input.nextInt();
+            System.out.println("Digite a senha: ");
+            String senha = input.next();
+
+            String storeName = "NILL";
+            String storeCategory = "NILL";
+
+            if (tipoConta == 1) {
+                System.out.println("Digite o nome da loja: ");
+                storeName = input.next();
+                System.out.println("Digite a categoria da loja: ");
+                storeCategory = input.next();
+            }
+
+            try {
+                user = criarConta(tipoConta, key, senha, storeName, storeCategory);
+                if (user == null) {
+                    painelLogIn();
+                    return;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        if (user != null) user.painelInterativo();
+    }
+
     // Métos estáticos auxiliares:
     public static void escreverString(RandomAccessFile raf, String texto) throws IOException {
         if (texto == null) {
@@ -196,4 +321,12 @@ public class MarketPlace {
         // Decodifica preservando eventuais espaços válidos e sem truncamento indevido
         return new String(buffer, 0, tamanhoReal, StandardCharsets.UTF_8);
     }
+
+    // main:
+
+    public static void main(String[] args)
+    {
+        painelLogIn();
+    }
+
 }
