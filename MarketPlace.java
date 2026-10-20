@@ -102,7 +102,7 @@ public class MarketPlace {
                     try {
                         int keyRead = raf.readInt();
                         if (keyRead == key) {
-                            System.out.println("Erro: Já existe um usuário cadastrado com este CPF/chave!");
+                            System.out.println("Erro: Já existe um usuário cadastrado com este NROUSP!");
                             return null;
                         }
                         raf.skipBytes(82);
@@ -185,7 +185,7 @@ public class MarketPlace {
                         continue;
                     }
 
-                    System.out.printf("%nProduto: %s%nPreço: %f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
+                    System.out.printf("%nProduto: %s%nPreço: %.2f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
                             estoque, id, descricao);
 
                 } catch (EOFException e) {
@@ -212,7 +212,7 @@ public class MarketPlace {
         if (aux == 1){
             String senha = new String(); 
             int key; 
-            System.out.print("Digite seu CPF");
+            System.out.print("Digite seu NROUSP");
             key = input.nextInt(); 
             System.out.println("Digite a senha");
             senha = input.next(); 
@@ -233,7 +233,7 @@ public class MarketPlace {
         } else {
             System.out.println("Selecione o tipo de conta:\n[0] Cliente\n[1] Lojista");
             int tipoConta = input.nextInt();
-            System.out.print("Digite seu CPF: ");
+            System.out.print("Digite seu NROUSP: ");
             int key = input.nextInt();
             System.out.println("Digite a senha: ");
             String senha = input.next();
@@ -242,10 +242,22 @@ public class MarketPlace {
             String storeCategory = "NILL";
 
             if (tipoConta == 1) {
+                input.nextLine(); // Limpa o buffer residual do teclado após input.next()
+
                 System.out.println("Digite o nome da loja: ");
-                storeName = input.next();
+                storeName = input.nextLine().trim();
+
                 System.out.println("Digite a categoria da loja: ");
-                storeCategory = input.next();
+                storeCategory = input.nextLine().trim();
+
+                byte[] bytesNome = storeName.getBytes(StandardCharsets.UTF_8);
+                byte[] bytesCat = storeCategory.getBytes(StandardCharsets.UTF_8);
+
+                if (storeName.isBlank() || storeCategory.isBlank() || bytesNome.length > TAMANHO_STRING || bytesCat.length > TAMANHO_STRING) {
+                    System.err.println("Nome ou categoria inválidos!");
+                    painelLogIn();
+                    return;
+                }
             }
 
             try {
@@ -323,7 +335,6 @@ public class MarketPlace {
     }
 
     // main:
-
     public static void main(String[] args)
     {
         painelLogIn();

@@ -13,7 +13,6 @@ class FuncionalidadeInvalidaException extends Exception {
 public class User {
 
     // Strings com no máximo 60 bytes
-
     protected int key;
     protected String password;
     protected int[] cartProductsRRN;
@@ -73,7 +72,7 @@ public class User {
                         continue;
                     }
 
-                    System.out.printf("%nProduto: %s%nPreço: %f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
+                    System.out.printf("%nProduto: %s%nPreço: %.2f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
                             estoque, id, descricao);
 
                 } catch (EOFException e) {
@@ -87,7 +86,7 @@ public class User {
         System.out.print("\nUse addcart <id_Produto> para adicionar um produto ao carrinho\n[1] Voltar\n");
 
         Scanner input = new Scanner(System.in);
-        
+
         while (true) {
             String comando = input.next();
             if (comando.equals("addcart")) {
@@ -105,14 +104,14 @@ public class User {
 
         String name = new String();
         String category = new String();
-        int sellerid; 
+        int sellerid;
 
         try (RandomAccessFile raf = new RandomAccessFile("Stores.bin", "rw")) {
 
             while (true) {
                 try {
 
-                    sellerid = raf.readInt(); 
+                    sellerid = raf.readInt();
                     name = MarketPlace.lerString(raf);
                     category = MarketPlace.lerString(raf);
 
@@ -132,7 +131,7 @@ public class User {
         while (true) {
             String comando = input.next();
             if (comando.equals("openstore")) {
-                int key = input.nextInt(); 
+                int key = input.nextInt();
                 MarketPlace.exibirLoja(key);
             } else if (comando.equals("1")) {
                 break;
@@ -164,7 +163,7 @@ public class User {
                 nome = MarketPlace.lerString(raf);
                 descricao = MarketPlace.lerString(raf, 100);
 
-                System.out.printf("%nProduto: %s%nPreço: %f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
+                System.out.printf("%nProduto: %s%nPreço: %.2f%nEstoque: %d%nID: %d%nDescricao: %s%n", nome, preco,
                         estoque, id, descricao);
             }
 
@@ -178,7 +177,7 @@ public class User {
         while (true) {
             String comando = input.next();
             if (comando.equals("cartrem")) {
-                int idProduct = input.nextInt(); 
+                int idProduct = input.nextInt();
                 this.removerDoCarrinho(idProduct);
             } else if (comando.equals("1")) {
                 break;
@@ -404,45 +403,81 @@ class UserExtended extends User {
 
     // Demais Métodos:
     private void exibirMinhaLoja() {
-        MarketPlace.exibirLoja(key);
 
-        System.out.print("\nUse addproduct para adicionar um produto\nUse remproduct para remover um produto\nUse editproduct para editar um produto\n[1] Voltar\n");
         Scanner input = new Scanner(System.in);
         String name = new String(); 
         String descricao = new String(); 
         double preco; 
         int estoque; 
+        int id; 
+
+        String[] temp = new String[2]; 
+        try{
+            temp = MarketPlace.readStoreNameAndCategory(key);
+        }catch (IOException e) {
+            e.printStackTrace();
+        }catch (DadosNaoEncontradosException e){
+            System.out.println("Erro no acesso a dados");
+            System.exit(1); 
+        }
+        System.out.printf("Nome: %s%nCategoria: %s%n", temp[0], temp[1]); 
+        MarketPlace.exibirLoja(key);
+
+        System.out.print("\nUse addproduct para adicionar um produto\nUse remproduct para remover um produto\n[1] Voltar\n");
 
         while (true) {
             String comando = input.next();
             if (comando.equals("addproduct")) {
+                input.nextLine(); // Limpa o buffer do scanner
 
                 System.out.println("Digite o nome do produto"); 
-                name = input.next(); 
+                name = input.nextLine().trim(); 
+
                 System.out.println("Digite a descricao do produto");
-                descricao = input.next(); 
+                descricao = input.nextLine().trim(); 
+
                 System.out.println("Digite o preço do produto");
-                preco = input.nextDouble();
+                String precoStr = input.nextLine().trim().replace(',', '.');
+
                 System.out.println("Digite o estoque do produto");
-                estoque = input.nextInt(); 
+                String estoqueStr = input.nextLine().trim();
 
-                byte[] bytes = name.getBytes();
-                int bytesName = bytes.length;
+                try {
+                    preco = Double.parseDouble(precoStr);
+                    estoque = Integer.parseInt(estoqueStr);
+                } catch (NumberFormatException e) {
+                    System.err.println("Preço ou estoque inválido!");
+                    continue;
+                }
 
-                bytes = descricao.getBytes(); 
-                int bytesDesc = bytes.length; 
+                byte[] bytesName = name.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                byte[] bytesDesc = descricao.getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-                if (bytesName >  60 || bytesDesc > 100 || preco < 0.f || estoque < 0){
-                    System.err.println("Dados inválidos!");
+                if (name.isBlank() || descricao.isBlank() || bytesName.length > 60 || bytesDesc.length > 100 || preco <= 0.0 || estoque < 0) {
+                    System.err.println("Dados inválidos! (Nome max 60 bytes, Descrição max 100 bytes, Preço > 0, Estoque >= 0)");
                     continue; 
                 }
-                ArquivoProduto.cadastrar(name, descricao, preco, estoque, this.key);  
+                Produto p = ArquivoProduto.cadastrar(name, descricao, preco, estoque, this.key);  
+                if (p != null) {
+                    System.out.println("Produto cadastrado com sucesso! ID: " + p.getIdProduto());
+                } else {
+                    System.err.println("Erro ao cadastrar produto.");
+                }
 
-            }else if (comando.equals("remproduct")){
-
+            } else if (comando.equals("remproduct")) {
                 System.out.println("Digite o ID do produto");
-                
-
+                try {
+                    id = input.nextInt(); 
+                    if (id <= 0) { 
+                        System.err.println("ID deve ser maior que zero!");
+                        continue; 
+                    }
+                    ArquivoProduto.remover_registro(id);
+                    System.out.println("Produto ID " + id + " removido com sucesso!");
+                } catch (Exception e) {
+                    System.err.println("ID inválido!");
+                    input.nextLine();
+                }
             }
 
             else if (comando.equals("1")) {

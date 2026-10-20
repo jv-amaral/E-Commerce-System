@@ -72,7 +72,7 @@ public class ArquivoProduto {
     }
 
     // metodo usado para ler um campo, comecando a leitura na posicao atual
-    private String lerTexto(RandomAccessFile arquivo, int tamanho) throws IOException {
+    private static String lerTexto(RandomAccessFile arquivo, int tamanho) throws IOException {
         byte[] campo = new byte[tamanho];
         arquivo.readFully(campo);
         int tamanhoReal = 0;
@@ -84,7 +84,7 @@ public class ArquivoProduto {
     }
 
     // vai ler apenas um byte, que vai ver se esta removido ou nao
-    private byte lerFlag(RandomAccessFile arquivo) throws IOException {
+    private static byte lerFlag(RandomAccessFile arquivo) throws IOException {
         byte flag = arquivo.readByte();
         if (flag != FLAG_ATIVO && flag != FLAG_REMOVIDO) {
             throw new IOException("Flag de remoção inválida.");
@@ -112,7 +112,7 @@ public class ArquivoProduto {
     }
 
     // Retorna null para um registro marcado como removido, ou seja, byte = 1
-    private Produto lerRegistro(RandomAccessFile arquivo) throws IOException {
+    private static Produto lerRegistro(RandomAccessFile arquivo) throws IOException {
         long inicio = arquivo.getFilePointer(); // sera utilizado para ser a posicao atual no arquivo
         byte flag = lerFlag(arquivo);
 
@@ -136,7 +136,7 @@ public class ArquivoProduto {
         }
     }
 
-    private long localizarRegistro(RandomAccessFile arquivo, int idProduto) throws IOException {
+    private static long localizarRegistro(RandomAccessFile arquivo, int idProduto) throws IOException {
         if (idProduto <= 0) {
             throw new IllegalArgumentException("O ID do produto deve ser maior que zero.");
         }
@@ -155,8 +155,8 @@ public class ArquivoProduto {
     }
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
-    public Produto cadastrar(String nome, String descricao, double preco,
-                             int quantidadeEstoque, int idLoja) throws IOException {
+    public static Produto cadastrar(String nome, String descricao, double preco,
+                             int quantidadeEstoque, int idUsuario) {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
             arquivo.seek(0);
@@ -184,16 +184,22 @@ public class ArquivoProduto {
     }
 
     // metodo utilizado na busca por id do produto
-    public Produto buscarPorId(int idProduto) throws IOException {
+    public static Produto buscarPorId(int idProduto) {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
-            long posicao = localizarRegistro(arquivo, id);
+            long posicao = localizarRegistro(arquivo, idProduto);
             arquivo.seek(posicao);
             return lerRegistro(arquivo);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            return null;
         }
     }
 
-    public List<Produto> listarTodos() throws IOException {
+    public static List<Produto> listarTodos() {
         List<Produto> produtos = new ArrayList<>();
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
@@ -205,25 +211,31 @@ public class ArquivoProduto {
                     produtos.add(produto);
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return produtos;
     }
 
-    public List<Produto> listarPorUsuario(int idUsuario) throws IOException {
+    public static List<Produto> listarPorUsuario(int idUsuario) {
         if (idUsuario <= 0) {
             throw new IllegalArgumentException("O ID do usuário deve ser maior que zero.");
         }
         List<Produto> produtosDoUsuario = new ArrayList<>();
         for (Produto produto : listarTodos()) {
-            if (produto.getIdLoja() == idLoja) {
-                produtosDaLoja.add(produto);
+            if (produto.getIdUsuario() == idUsuario) {
+                produtosDoUsuario.add(produto);
             }
         }
         return produtosDoUsuario;
     }
 
+    public static List<Produto> listarPorLoja(int idLoja) {
+        return listarPorUsuario(idLoja);
+    }
+
     // Salva alteracoes feitas nos dados de um produto existente
-    public void atualizar(Produto produto) throws IOException {
+    public static void atualizar(Produto produto) {
         if (produto == null) {
             throw new IllegalArgumentException("O produto não pode ser nulo.");
         }
@@ -233,24 +245,37 @@ public class ArquivoProduto {
             arquivo.seek(posicao);
             Produto original = lerRegistro(arquivo);
 
-            if (original.getIdLoja() != produto.getIdLoja()) {
+            if (original.getIdUsuario() != produto.getIdUsuario()) {
                 throw new IllegalArgumentException("Não é possível trocar a loja do produto.");
             }
 
             arquivo.seek(posicao);
             escreverRegistro(arquivo, produto);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
         }
     }
 
-    public void remover_registro(RandomAccessFile arquivo, int idProduto)
-            throws IOException {
+    public static void remover_registro(RandomAccessFile arquivo, int idProduto) {
+        try {
+            prepararArquivo(arquivo);
+            long posicao = localizarRegistro(arquivo, idProduto);
+            arquivo.seek(posicao);
+            arquivo.writeByte(FLAG_REMOVIDO);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+        }
+    }
 
-        prepararArquivo(arquivo);
-
-        long posicao = localizarRegistro(arquivo, idProduto);
-
-        arquivo.seek(posicao);
-
-        arquivo.writeByte(FLAG_REMOVIDO);
+    public static void remover_registro(int idProduto) {
+        try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
+            remover_registro(arquivo, idProduto);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
