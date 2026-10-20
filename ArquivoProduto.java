@@ -157,21 +157,21 @@ public class ArquivoProduto {
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
     public Produto cadastrar(String nome, String descricao, double preco,
-            int quantidadeEstoque, int idLoja) throws IOException {
+            int quantidadeEstoque, int idUsuario) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
             arquivo.seek(0);
 
             int idGerado = arquivo.readInt();
 
-            //verifica a quantidade de produtos
+            // verifica a quantidade de produtos se esta no max de int
             if (idGerado == Integer.MAX_VALUE) {
                 throw new IllegalStateException("O contador de IDs atingiu o limite.");
             }
 
-            Produto produto = new Produto(
-                    FLAG_ATIVO, nome, descricao, preco, quantidadeEstoque, idGerado, idLoja);
+            Produto produto = new Produto(FLAG_ATIVO, nome, descricao, preco, quantidadeEstoque, idGerado, idUsuario);
 
+            // escreve no final do arquivo
             arquivo.seek(arquivo.length());
             escreverRegistro(arquivo, produto);
             arquivo.seek(0);
@@ -180,7 +180,8 @@ public class ArquivoProduto {
         }
     }
 
-    public Produto buscarPorId(int id) throws IOException {
+    // metodo utilizado na busca por id do produto
+    public Produto buscarPorId(int idProduto) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
             long posicao = localizarRegistro(arquivo, id);
@@ -196,6 +197,7 @@ public class ArquivoProduto {
             arquivo.seek(TAMANHO_CABECALHO);
             while (arquivo.getFilePointer() < arquivo.length()) {
                 Produto produto = lerRegistro(arquivo);
+                // adiciona somente se nao for nulo
                 if (produto != null) {
                     produtos.add(produto);
                 }
@@ -204,17 +206,17 @@ public class ArquivoProduto {
         return produtos;
     }
 
-    public List<Produto> listarPorLoja(int idLoja) throws IOException {
-        if (idLoja <= 0) {
+    public List<Produto> listarPorUsuario(int idLoja) throws IOException {
+        if (idUsuario <= 0) {
             throw new IllegalArgumentException("O ID da loja deve ser maior que zero.");
         }
-        List<Produto> produtosDaLoja = new ArrayList<>();
+        List<Produto> produtosDoUsuario = new ArrayList<>();
         for (Produto produto : listarTodos()) {
-            if (produto.getIdLoja() == idLoja) {
-                produtosDaLoja.add(produto);
+            if (produto.getIdUsuario() == idLoja) {
+                produtosDoUsuario.add(produto);
             }
         }
-        return produtosDaLoja;
+        return produtosDoUsuario;
     }
 
     // Salva alteracoes feitas nos dados de um produto existente
