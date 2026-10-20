@@ -255,6 +255,7 @@ public class ArquivoProduto {
         }
     }
 
+    // funcao para remover registro
     public static void remover_registro(RandomAccessFile arquivo, int idProduto)
             throws IOException {
         prepararArquivo(arquivo);
