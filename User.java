@@ -125,7 +125,7 @@ public class User {
             e.printStackTrace();
         }
 
-        System.out.print("\nUse openstore <id_Vendedor> para adicionar um produto ao carrinho\n[1] Voltar\n");
+        System.out.print("\nUse openstore <id_Vendedor> para exibir os produtos de uma loja\n[1] Voltar\n");
         Scanner input = new Scanner(System.in);
 
         while (true) {
