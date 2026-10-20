@@ -152,7 +152,7 @@ public class ArquivoProduto {
     }
 
     // Gera o ID, grava o produto e devolve o objeto cadastrado
-    public Produto cadastrar(String nome, String descricao, double preco,
+    public static Produto cadastrar(String nome, String descricao, double preco,
                              int quantidadeEstoque, int idLoja) {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
             prepararArquivo(arquivo);
