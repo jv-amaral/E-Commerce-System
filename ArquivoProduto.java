@@ -206,13 +206,13 @@ public class ArquivoProduto {
         return produtos;
     }
 
-    public List<Produto> listarPorUsuario(int idLoja) throws IOException {
+    public List<Produto> listarPorUsuario(int idUsuario) throws IOException {
         if (idUsuario <= 0) {
-            throw new IllegalArgumentException("O ID da loja deve ser maior que zero.");
+            throw new IllegalArgumentException("O ID do usuário deve ser maior que zero.");
         }
         List<Produto> produtosDoUsuario = new ArrayList<>();
         for (Produto produto : listarTodos()) {
-            if (produto.getIdUsuario() == idLoja) {
+            if (produto.getIdUsuario() == idUsuario) {
                 produtosDoUsuario.add(produto);
             }
         }
@@ -230,12 +230,24 @@ public class ArquivoProduto {
             arquivo.seek(posicao);
             Produto original = lerRegistro(arquivo);
 
-            if (original.getIdLoja() != produto.getIdLoja()) {
-                throw new IllegalArgumentException("Não é possível trocar a loja do produto.");
+            if (original.getIdUsuario() != produto.getIdUsuario()) {
+                throw new IllegalArgumentException("Não é possível trocar o usuário do produto.");
             }
 
             arquivo.seek(posicao);
             escreverRegistro(arquivo, produto);
         }
+    }
+
+    public void remover_registro(RandomAccessFile arquivo, int idProduto)
+            throws IOException {
+
+        prepararArquivo(arquivo);
+
+        long posicao = localizarRegistro(arquivo, idProduto);
+
+        arquivo.seek(posicao);
+
+        arquivo.writeByte(FLAG_REMOVIDO);
     }
 }
