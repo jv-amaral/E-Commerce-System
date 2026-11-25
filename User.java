@@ -85,20 +85,14 @@ public class User {
 
     protected void exibirLojas() {
         boolean encontrou = false;
-        if (new File("Stores.bin").exists()) {
-            try (RandomAccessFile raf = new RandomAccessFile("Stores.bin", "r")) {
-                MarketPlace.conferirRegistros(raf, MarketPlace.TAM_REG_LOJA, "Stores.bin");
-                while (raf.getFilePointer() < raf.length()) {
-                    int sellerid = raf.readInt();
-                    String name = MarketPlace.lerString(raf);
-                    String category = MarketPlace.lerString(raf);
-                    System.out.printf("%nLoja: %s%nCategoria: %s%nID Vendedor: %d%n",
-                            name, category, sellerid);
-                    encontrou = true;
-                }
-            } catch (IOException e) {
-                System.out.println("Não foi possível consultar as lojas: " + e.getMessage());
+        try {
+            for (MarketPlace.Loja loja : MarketPlace.listarLojas()) {
+                System.out.printf("%nLoja: %s%nCategoria: %s%nID Vendedor: %d%n",
+                        loja.nome, loja.categoria, loja.vendedor);
+                encontrou = true;
             }
+        } catch (IOException e) {
+            System.out.println("Não foi possível consultar as lojas: " + e.getMessage());
         }
         if (!encontrou) {
             System.out.println("Nenhuma loja cadastrada.");
@@ -179,55 +173,38 @@ public class User {
         }
     }
 
-    public boolean adicionarAoCarrinho(int idProduto) {
-        int posLivre = -1;
+    int adicionarEmMemoria(int idProduto) throws IOException {
         for (int i = 0; i < cartProductsRRN.length; i++) {
             if (cartProductsRRN[i] == -1) {
-                posLivre = i;
-                break;
+                cartProductsRRN[i] = ArquivoProduto.rrnDisponivel(idProduto);
+                return i;
             }
         }
-        if (posLivre == -1) {
-            System.out.println("Seu carrinho está cheio!");
-            return false;
+        throw new IllegalArgumentException("Seu carrinho está cheio!");
+    }
+
+    void removerEmMemoria(int posicao) {
+        if (posicao < 0 || posicao >= cartProductsRRN.length || cartProductsRRN[posicao] == -1) {
+            throw new IllegalArgumentException("Selecione um item do carrinho.");
         }
-        try (RandomAccessFile raf = new RandomAccessFile("Products.bin", "r")) {
-            if (idProduto <= 0) {
-                throw new IllegalArgumentException("O ID do produto deve ser maior que zero.");
+        setCartProductsRRN(-1, posicao);
+    }
+
+    public boolean adicionarAoCarrinho(int idProduto) {
+        try {
+            int posicao = adicionarEmMemoria(idProduto);
+            try {
+                userDataSaving();
+            } catch (IOException e) {
+                removerEmMemoria(posicao);
+                throw e;
             }
-            MarketPlace.conferirProdutos(raf);
-            int rrn = 0;
-            for (long pos = MarketPlace.TAM_CAB_PRODUTO; pos < raf.length();
-                    pos += MarketPlace.TAM_REG_PRODUTO, rrn++) {
-                raf.seek(pos);
-                byte removido = raf.readByte();
-                raf.skipBytes(Integer.BYTES);
-                int idLido = raf.readInt();
-                if (removido != 0 && removido != 1) {
-                    throw new IOException("Flag de produto inválida.");
-                }
-                if (removido == 0 && idLido == idProduto) {
-                    raf.skipBytes(Double.BYTES);
-                    if (raf.readInt() <= 0) {
-                        System.out.println("Produto sem estoque.");
-                        return false;
-                    }
-                    cartProductsRRN[posLivre] = rrn;
-                    try {
-                        userDataSaving();
-                    } catch (IOException e) {
-                        cartProductsRRN[posLivre] = -1;
-                        throw e;
-                    }
-                    System.out.printf("Produto ID %d adicionado ao carrinho!%n", idProduto);
-                    return true;
-                }
-            }
-            System.out.printf("Produto com ID %d não foi encontrado.%n", idProduto);
+            System.out.printf("Produto ID %d adicionado ao carrinho!%n", idProduto);
+            return true;
         } catch (IOException | IllegalArgumentException e) {
             System.out.println("Não foi possível adicionar ao carrinho: " + e.getMessage());
+            return false;
         }
-        return false;
     }
 
     public boolean removerDoCarrinho(int idProduto) {
@@ -261,7 +238,7 @@ public class User {
                 if (idLido == idProduto) {
                     // A flag de remoção pertence ao catálogo e não deve mudar ao retirar do carrinho.
                     // 2. Coloca o RRN referente ao removido na lista cartProductsRRN como -1
-                    cartProductsRRN[i] = -1;
+                    removerEmMemoria(i);
                     try {
                         userDataSaving();
                     } catch (IOException e) {
@@ -320,6 +297,10 @@ public class User {
 
     public void userDataSaving() throws IOException {
         validarDadosUsuario();
+        salvarCarrinho(cartProductsRRN);
+    }
+
+    void salvarCarrinho(int[] rrns) throws IOException {
         if (!new File("Users.bin").exists()) {
             throw new IOException("Usuário não cadastrado em Users.bin.");
         }
@@ -329,7 +310,7 @@ public class User {
                 int keyRead = raf.readInt();
                 if (keyRead == key) {
                     raf.skipBytes(MarketPlace.TAMANHO_STRING + Character.BYTES);
-                    for (int rrn : cartProductsRRN) {
+                    for (int rrn : rrns) {
                         raf.writeInt(rrn);
                     }
                     return;
@@ -424,6 +405,21 @@ class UserExtended extends User {
     }
 
     // Demais Métodos:
+    Produto produtoDaLoja(int id) throws IOException {
+        Produto produto = ArquivoProduto.buscarPorId(id);
+        if (produto.getIdUsuario() != key) {
+            throw new IllegalArgumentException("Você só pode alterar seus próprios produtos.");
+        }
+        return produto;
+    }
+
+    void removerProduto(int id) throws IOException {
+        produtoDaLoja(id);
+        try (RandomAccessFile arquivo = new RandomAccessFile("Products.bin", "rw")) {
+            ArquivoProduto.remover_registro(arquivo, id);
+        }
+    }
+
     private void exibirMinhaLoja() {
         try {
             String[] loja = MarketPlace.readStoreNameAndCategory(this.key);
@@ -464,10 +460,7 @@ class UserExtended extends User {
                 } else if (comando.equals("editproduct")) {
                     System.out.print("ID do produto: ");
                     int idProduto = Integer.parseInt(input.nextLine().trim());
-                    Produto produto = ArquivoProduto.buscarPorId(idProduto);
-                    if (produto.getIdUsuario() != this.key) {
-                        throw new IllegalArgumentException("Você só pode editar seus próprios produtos.");
-                    }
+                    Produto produto = produtoDaLoja(idProduto);
                     System.out.print("\nO que deseja alterar?\n[1] Nome\n[2] Descrição\n"
                             + "[3] Preço\n[4] Definir estoque total\nOpção: ");
                     int opcao = Integer.parseInt(input.nextLine().trim());
@@ -496,13 +489,7 @@ class UserExtended extends User {
                 } else if (comando.equals("remproduct")) {
                     System.out.print("ID do produto: ");
                     int idProduto = Integer.parseInt(input.nextLine().trim());
-                    Produto produto = ArquivoProduto.buscarPorId(idProduto);
-                    if (produto.getIdUsuario() != this.key) {
-                        throw new IllegalArgumentException("Você só pode remover seus próprios produtos.");
-                    }
-                    try (RandomAccessFile arquivo = new RandomAccessFile("Products.bin", "rw")) {
-                        ArquivoProduto.remover_registro(arquivo, idProduto);
-                    }
+                    removerProduto(idProduto);
                     System.out.println("Produto removido!");
                 } else {
                     System.out.println("Comando inválido.");

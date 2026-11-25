@@ -200,6 +200,33 @@ public class ArquivoProduto {
         }
     }
 
+    static int rrnDisponivel(int idProduto) throws IOException {
+        try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "r")) {
+            MarketPlace.conferirProdutos(arquivo);
+            long pos = localizarRegistro(arquivo, idProduto);
+            arquivo.seek(pos);
+            if (lerRegistro(arquivo).getQuantidade() <= 0) {
+                throw new IllegalArgumentException("Produto sem estoque.");
+            }
+            return (int) ((pos - TAMANHO_CABECALHO) / TAMANHO_REGISTRO);
+        }
+    }
+
+    static Produto buscarPorRRN(int rrn) throws IOException {
+        if (!new java.io.File(NOME_ARQUIVO).exists()) {
+            return null;
+        }
+        try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "r")) {
+            MarketPlace.conferirProdutos(arquivo);
+            long pos = TAMANHO_CABECALHO + (long) rrn * TAMANHO_REGISTRO;
+            if (rrn < 0 || pos >= arquivo.length()) {
+                return null;
+            }
+            arquivo.seek(pos);
+            return lerRegistro(arquivo);
+        }
+    }
+
     public static List<Produto> listarTodos() throws IOException {
         List<Produto> produtos = new ArrayList<>();
 

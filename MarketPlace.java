@@ -4,6 +4,8 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+import java.util.List;
+import java.util.ArrayList;
 
 class SenhaIncorretaException extends Exception {
     public SenhaIncorretaException(String mensagem) {
@@ -143,6 +145,36 @@ public class MarketPlace {
 
     public static User criarConta(int tipoConta, int key, String password) throws IOException {
         return criarConta(tipoConta, key, password, "NILL", "NILL");
+    }
+
+    static class Loja {
+        final int vendedor;
+        final String nome;
+        final String categoria;
+
+        Loja(int vendedor, String nome, String categoria) {
+            this.vendedor = vendedor;
+            this.nome = nome;
+            this.categoria = categoria;
+        }
+
+        @Override
+        public String toString() {
+            return nome + " — " + categoria + " (vendedor " + vendedor + ")";
+        }
+    }
+
+    static List<Loja> listarLojas() throws IOException {
+        List<Loja> lojas = new ArrayList<>();
+        if (new File("Stores.bin").exists()) {
+            try (RandomAccessFile raf = new RandomAccessFile("Stores.bin", "r")) {
+                conferirRegistros(raf, TAM_REG_LOJA, "Stores.bin");
+                while (raf.getFilePointer() < raf.length()) {
+                    lojas.add(new Loja(raf.readInt(), lerString(raf), lerString(raf)));
+                }
+            }
+        }
+        return lojas;
     }
 
     public static String[] readStoreNameAndCategory(int key)
