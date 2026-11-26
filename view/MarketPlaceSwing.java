@@ -1,3 +1,6 @@
+package view;
+
+import controller.UserController;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -18,8 +21,11 @@ import javax.swing.plaf.basic.BasicTextFieldUI;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import model.ItemCarrinho;
+import model.Loja;
+import model.Produto;
 
-/** Entrada gráfica da entrega 2. Cada botão chama as operações do marketplace. */
+/** View gráfica (Swing) do marketplace. Toda comunicação com os dados ocorre via UserController. */
 public class MarketPlaceSwing {
     // Paleta comum ao logotipo, à navegação e às tabelas.
     private static final Color PETROLEO = new Color(0x153C39);
@@ -46,39 +52,54 @@ public class MarketPlaceSwing {
         }
     };
 
+    private final UserController controller;
     private final JFrame janela = new JFrame("Marketplace");
     private final JLabel estado = new JLabel();
     private final JLabel ocupacao = new JLabel();
-    private final DefaultListModel<ItemCarrinho> itens = new DefaultListModel<>();
-    private final JList<ItemCarrinho> carrinho = new JList<>(itens);
+    private final DefaultListModel<LinhaItemCarrinho> itens = new DefaultListModel<>();
+    private final JList<LinhaItemCarrinho> carrinho = new JList<>(itens);
     private final ConteudoLista listaCarrinho = new ConteudoLista(carrinho, "Seu carrinho está vazio");
     private final TabelaProdutos catalogo = new TabelaProdutos("Nenhum produto disponível no catálogo");
     private final TabelaProdutos vitrine = new TabelaProdutos("Esta loja ainda não tem produtos");
     private final TabelaProdutos meusProdutos = new TabelaProdutos("Você ainda não cadastrou produtos");
-    private final JComboBox<MarketPlace.Loja> lojas = new JComboBox<>();
-    private User usuario;
-    private AutoSaveCarrinho autoSave;
+    private final JComboBox<Loja> lojas = new JComboBox<>();
     private boolean saindo;
 
-    private final JButton adicionar = principal("Adicionar ao carrinho", () -> {
-        autoSave.adicionar(catalogo.selecionado().getIdProduto());
-        carrinhoAlterado();
-    });
-    private final JButton removerItem = remocao("Remover item", () -> {
-        autoSave.remover(carrinho.getSelectedValue().posicao);
-        carrinhoAlterado();
-    });
-    private final JButton editar = botao("Editar produto", () -> editarProduto((UserExtended) usuario,
-            ((UserExtended) usuario).produtoDaLoja(meusProdutos.selecionado().getIdProduto())));
-    private final JButton removerProduto = remocao("Remover produto", () -> {
-        Produto produto = meusProdutos.selecionado();
-        if (confirmar("Remover " + produto.getNome() + "?", "Minha loja")) {
-            ((UserExtended) usuario).removerProduto(produto.getIdProduto());
-            atualizarProdutos();
-        }
-    });
+    private final JButton adicionar;
+    private final JButton removerItem;
+    private final JButton editar;
+    private final JButton removerProduto;
+
+    public MarketPlaceSwing() {
+        this(new UserController());
+    }
+
+    public MarketPlaceSwing(UserController controller) {
+        this.controller = controller;
+        this.adicionar = principal("Adicionar ao carrinho", () -> {
+            this.controller.adicionarAoCarrinhoAutoSave(catalogo.selecionado().getIdProduto());
+            carrinhoAlterado();
+        });
+        this.removerItem = remocao("Remover item", () -> {
+            this.controller.removerDoCarrinhoAutoSave(carrinho.getSelectedValue().posicao);
+            carrinhoAlterado();
+        });
+        this.editar = botao("Editar produto", () -> editarProduto(
+                this.controller.buscarProdutoDaLoja(meusProdutos.selecionado().getIdProduto())));
+        this.removerProduto = remocao("Remover produto", () -> {
+            Produto produto = meusProdutos.selecionado();
+            if (confirmar("Remover " + produto.getNome() + "?", "Minha loja")) {
+                this.controller.removerProdutoDaLoja(produto.getIdProduto());
+                atualizarProdutos();
+            }
+        });
+    }
 
     public static void main(String[] args) {
+        iniciarInterface(new UserController());
+    }
+
+    public static void iniciarInterface(UserController controller) {
         // A criação dos componentes e os eventos da janela acontecem na EDT do Swing.
         SwingUtilities.invokeLater(() -> {
             try {
@@ -96,11 +117,11 @@ public class MarketPlaceSwing {
             UIManager.put("Panel.background", FUNDO);
             UIManager.put("Label.foreground", TEXTO);
             UIManager.put("OptionPane.cancelButtonText", "Cancelar");
-            new MarketPlaceSwing().abrir();
+            new MarketPlaceSwing(controller).abrir();
         });
     }
 
-    private void abrir() {
+    public void abrir() {
         janela.setIconImages(List.of(imagemDaMarca(16), imagemDaMarca(32), imagemDaMarca(64)));
         janela.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         janela.addWindowListener(new WindowAdapter() {
@@ -221,8 +242,10 @@ public class MarketPlaceSwing {
     private void mostrarLogin() {
         JTextField chave = new JTextField(16);
         JPasswordField senha = new JPasswordField(16);
-        JButton entrar = principal("Entrar", () -> iniciarSessao(MarketPlace.readUsersData(
-                inteiro(chave, "NROUSP"), new String(senha.getPassword()))));
+        JButton entrar = principal("Entrar", () -> {
+            controller.login(inteiro(chave, "NROUSP"), new String(senha.getPassword()));
+            iniciarSessao();
+        });
         entrar.setIcon(new Icone(Simbolo.SETA, 17, Color.WHITE));
         entrar.setHorizontalTextPosition(SwingConstants.LEADING);
         JPanel acoes = new JPanel(new BorderLayout(0, 16));
@@ -304,10 +327,9 @@ public class MarketPlaceSwing {
                 ? formulario(new String[]{"NROUSP", "Senha", "Nome da loja", "Categoria"}, chave, senha, nome, categoria)
                 : formulario(new String[]{"NROUSP", "Senha"}, chave, senha);
         enviarFormulario(campos, lojista ? "Cadastrar lojista" : "Cadastrar cliente", () -> {
-            User novo = MarketPlace.criarConta(lojista ? 1 : 0, inteiro(chave, "NROUSP"),
+            controller.criarConta(lojista ? 1 : 0, inteiro(chave, "NROUSP"),
                     new String(senha.getPassword()), nome.getText().trim(), categoria.getText().trim());
-            if (novo == null) throw new IllegalArgumentException("Já existe uma conta com esse NROUSP.");
-            iniciarSessao(novo);
+            iniciarSessao();
         });
     }
 
@@ -319,9 +341,8 @@ public class MarketPlaceSwing {
         });
     }
 
-    private void iniciarSessao(User conta) {
-        usuario = conta;
-        autoSave = new AutoSaveCarrinho(conta, estado::setText);
+    private void iniciarSessao() {
+        controller.iniciarAutoSave(estado::setText, SwingUtilities::invokeLater);
         estado.setText("Sem alterações pendentes");
         JTabbedPane abas = new JTabbedPane();
         abas.setUI(new Abas());
@@ -340,8 +361,8 @@ public class MarketPlaceSwing {
         abas.addTab("Lojas", iconeAba(Simbolo.LOJA), pagina(vitrine.conteudo, seletor));
 
         abas.addTab("Carrinho", iconeAba(Simbolo.CARRINHO), pagina(listaCarrinho, barra(ocupacao, removerItem)));
-        boolean lojista = usuario instanceof UserExtended;
-        if (lojista) abas.addTab("Minha loja", iconeAba(Simbolo.CAIXA), minhaLoja((UserExtended) usuario));
+        boolean lojista = controller.isUsuarioLojista();
+        if (lojista) abas.addTab("Minha loja", iconeAba(Simbolo.CAIXA), minhaLoja());
 
         JPanel cabecalho = new JPanel(new BorderLayout(12, 0));
         cabecalho.setBackground(PETROLEO);
@@ -350,7 +371,7 @@ public class MarketPlaceSwing {
         JLabel perfil = new JLabel(lojista ? "Lojista" : "Cliente");
         perfil.setForeground(Color.WHITE);
         perfil.setFont(FONTE.deriveFont(Font.BOLD, 13f));
-        JLabel numero = new JLabel("Conta " + conta.getKey());
+        JLabel numero = new JLabel("Conta " + controller.getChaveUsuarioAtual());
         numero.setForeground(new Color(0xC4DCD1));
         numero.setFont(FONTE.deriveFont(12f));
         JPanel identidade = new JPanel(new GridLayout(2, 1));
@@ -377,13 +398,13 @@ public class MarketPlaceSwing {
         listaCarrinho.mostrarVazio(true);
         lojas.removeAllItems();
         executar(() -> {
-            for (MarketPlace.Loja loja : MarketPlace.listarLojas()) lojas.addItem(loja);
+            for (Loja loja : controller.listarLojas()) lojas.addItem(loja);
         });
         executar(this::atualizarProdutos);
     }
 
-    private JPanel minhaLoja(UserExtended vendedor) {
-        JButton cadastrar = principal("Cadastrar produto", () -> editarProduto(vendedor, null));
+    private JPanel minhaLoja() {
+        JButton cadastrar = principal("Cadastrar produto", () -> editarProduto(null));
         return pagina(meusProdutos.conteudo, barra(meusProdutos.contagem, linha(cadastrar, editar, removerProduto)));
     }
 
@@ -404,7 +425,7 @@ public class MarketPlaceSwing {
         return painel;
     }
 
-    private void editarProduto(UserExtended vendedor, Produto produto) throws Exception {
+    private void editarProduto(Produto produto) throws Exception {
         JTextField nome = new JTextField(produto == null ? "" : produto.getNome(), 24);
         JTextField descricao = new JTextField(produto == null ? "" : produto.getDescricao());
         JTextField preco = new JTextField(produto == null ? "" : String.valueOf(produto.getPreco()));
@@ -415,13 +436,10 @@ public class MarketPlaceSwing {
             double valor = lerPreco(preco);
             int quantidade = inteiro(estoque, "Estoque");
             if (produto == null) {
-                ArquivoProduto.cadastrar(nome.getText(), descricao.getText(), valor, quantidade, vendedor.getKey());
+                controller.cadastrarProduto(nome.getText(), descricao.getText(), valor, quantidade);
             } else {
-                produto.setNome(nome.getText());
-                produto.setDescricao(descricao.getText());
-                produto.setPreco(valor);
-                produto.setQuantidadeEstoque(quantidade);
-                ArquivoProduto.atualizar(produto);
+                controller.atualizarProduto(produto.getIdProduto(),
+                        nome.getText(), descricao.getText(), valor, quantidade);
             }
         });
         if (gravado) atualizarProdutos();
@@ -429,18 +447,18 @@ public class MarketPlaceSwing {
 
     // Uma alteração no produto pode afetar o catálogo, as vitrines e os preços do carrinho.
     private void atualizarProdutos() throws IOException {
-        List<Produto> disponiveis = ArquivoProduto.listarTodos();
-        disponiveis.removeIf(produto -> produto.getQuantidade() == 0);
-        catalogo.preencher(disponiveis);
+        catalogo.preencher(controller.listarCatalogoDisponivel());
         atualizarVitrine();
-        if (usuario instanceof UserExtended) meusProdutos.preencher(ArquivoProduto.listarPorUsuario(usuario.getKey()));
+        if (controller.isUsuarioLojista()) {
+            meusProdutos.preencher(controller.listarMeusProdutos());
+        }
         atualizarCarrinho();
     }
 
     private void atualizarVitrine() throws IOException {
-        MarketPlace.Loja loja = (MarketPlace.Loja) lojas.getSelectedItem();
+        Loja loja = (Loja) lojas.getSelectedItem();
         vitrine.conteudo.aviso.setText(loja == null ? "Nenhuma loja cadastrada" : "Esta loja ainda não tem produtos");
-        vitrine.preencher(loja == null ? List.of() : ArquivoProduto.listarPorUsuario(loja.vendedor));
+        vitrine.preencher(loja == null ? List.of() : controller.listarProdutosPorLoja(loja.getVendedor()));
     }
 
     // A edição já ocorreu em memória. Apenas o auto-save confirma a escrita no rodapé.
@@ -451,16 +469,16 @@ public class MarketPlaceSwing {
 
     private void atualizarCarrinho() throws IOException {
         itens.clear();
-        int[] rrns = autoSave.itens();
-        for (int pos = 0; pos < rrns.length; pos++) {
-            if (rrns[pos] == -1) continue;
-            Produto produto = ArquivoProduto.buscarPorRRN(rrns[pos]);
+        List<ItemCarrinho> itensConsultados = controller.consultarCarrinhoAutoSave();
+        int capacidade = controller.getCapacidadeCarrinho();
+        for (ItemCarrinho item : itensConsultados) {
+            Produto produto = item.getProduto();
             String nome = produto == null ? "Produto indisponível" : produto.getNome();
             String preco = produto == null ? "" : TabelaProdutos.MOEDA.format(produto.getPreco());
-            itens.addElement(new ItemCarrinho(pos, nome, preco));
+            itens.addElement(new LinhaItemCarrinho(item.getPosicao(), nome, preco));
         }
-        ocupacao.setText(itens.size() + " de " + rrns.length + " posições ocupadas");
-        ocupacao.setIcon(new Medidor(itens.size(), rrns.length));
+        ocupacao.setText(itens.size() + " de " + capacidade + " posições ocupadas");
+        ocupacao.setIcon(new Medidor(itens.size(), capacidade));
         ocupacao.setIconTextGap(10);
         listaCarrinho.mostrarVazio(itens.isEmpty());
     }
@@ -468,15 +486,13 @@ public class MarketPlaceSwing {
     // O X e o logout aguardam a mesma gravação final. Uma falha permite tentar novamente.
     private void sair(boolean fecharJanela) {
         if (saindo) return;
-        if (autoSave == null) {
+        if (!controller.temAutoSaveAtivo()) {
             janela.dispose();
             return;
         }
         saindo = true;
         janela.setEnabled(false);
-        autoSave.encerrar(() -> {
-            autoSave = null;
-            usuario = null;
+        controller.encerrarSessaoAutoSave(() -> {
             saindo = false;
             if (fecharJanela) {
                 janela.dispose();
@@ -493,12 +509,12 @@ public class MarketPlaceSwing {
     }
 
     // Duas linhas podem apontar para o mesmo produto, mas cada uma ocupa sua própria posição.
-    private static class ItemCarrinho {
+    private static class LinhaItemCarrinho {
         final int posicao;
         final String nome;
         final String preco;
 
-        ItemCarrinho(int posicao, String nome, String preco) {
+        LinhaItemCarrinho(int posicao, String nome, String preco) {
             this.posicao = posicao;
             this.nome = nome;
             this.preco = preco;
@@ -508,7 +524,7 @@ public class MarketPlaceSwing {
     }
 
     // O texto e o preço ganham colunas próprias na lista, mantendo a posição real no item.
-    private static class LinhaCarrinho extends JPanel implements ListCellRenderer<ItemCarrinho> {
+    private static class LinhaCarrinho extends JPanel implements ListCellRenderer<LinhaItemCarrinho> {
         private final JLabel nome = new JLabel();
         private final JLabel preco = new JLabel();
 
@@ -525,8 +541,8 @@ public class MarketPlaceSwing {
             add(preco, BorderLayout.EAST);
         }
 
-        @Override public Component getListCellRendererComponent(JList<? extends ItemCarrinho> lista,
-                ItemCarrinho item, int indice, boolean selecionado, boolean foco) {
+        @Override public Component getListCellRendererComponent(JList<? extends LinhaItemCarrinho> lista,
+                LinhaItemCarrinho item, int indice, boolean selecionado, boolean foco) {
             nome.setText(item.nome);
             preco.setText(item.preco);
             setBackground(fundoLinha(indice, selecionado));

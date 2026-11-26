@@ -1,7 +1,8 @@
-//definicao da classe produto
+package model;
 
+/** Modelo de produto comercializado no marketplace. */
 public class Produto {
-    private byte removido; // sera usada futuramente
+    private byte removido;
     private String nome;
     private String descricao;
     private double preco;
@@ -9,8 +10,6 @@ public class Produto {
     private int idProduto;
     private int idUsuario;
 
-    // construtor da classe
-    // implementados com o tratamento de erro
     public Produto(byte removido, String nome, String descricao, double preco, int quantidade_estoque, int idProduto,
             int idUsuario) {
         if (removido != 0 && removido != 1) {
@@ -53,8 +52,6 @@ public class Produto {
         this.idProduto = idProduto;
         this.idUsuario = idUsuario;
     }
-
-    // implementacao dos metodos
 
     public byte getRemovido() {
         return removido;
@@ -102,8 +99,6 @@ public class Produto {
         idProduto = novoIdProduto;
     }
 
-    // metodos utilziados na troca de paramentros, como nome, etc
-    // eles foram feitos com o tratamento de erro, para evitar falhas no programa
     public void setNome(String novoNome) {
         if (novoNome == null || novoNome.isBlank()) {
             throw new IllegalArgumentException("O nome não pode ser vazio.");

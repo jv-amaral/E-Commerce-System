@@ -1,15 +1,19 @@
+package model;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Persistência em arquivo binário dos produtos (Products.bin). */
 public class ArquivoProduto {
     private static final String NOME_ARQUIVO = "Products.bin";
     private static final int TAMANHO_INDICE_DE_REMOCAO = 1;
-    private static final int TAMANHO_STRING = 60;
-    private static final int TAMANHO_DESCRICAO = 100;
-    private static final int TAMANHO_CABECALHO = 8;
+    private static final int TAMANHO_STRING = ArquivoBinario.TAMANHO_STRING;
+    private static final int TAMANHO_DESCRICAO = ArquivoBinario.TAMANHO_DESCRICAO;
+    private static final int TAMANHO_CABECALHO = ArquivoBinario.TAM_CAB_PRODUTO;
 
     // flag + idUsuario + idProduto + preco + estoque + nome + descricao
     private static final int TAMANHO_REGISTRO = TAMANHO_INDICE_DE_REMOCAO + 2 * Integer.BYTES
@@ -17,81 +21,54 @@ public class ArquivoProduto {
     private static final byte FLAG_ATIVO = 0;
     private static final byte FLAG_REMOVIDO = 1;
 
-    // prepacao do arquivo
-
     private static void prepararArquivo(RandomAccessFile arquivo) throws IOException {
-        if (arquivo.length() == 0) {// se o arquivo estiver vazio
-            arquivo.seek(0); // cursor é iniciado no byte 0 do cabecalho
-            arquivo.writeInt(1); // proximo id de produto disponivel
-            arquivo.writeInt(-1); // inicio da futura pilha
+        if (arquivo.length() == 0) {
+            arquivo.seek(0);
+            arquivo.writeInt(1);
+            arquivo.writeInt(-1);
         }
-
-        // Confere se existem um cabecalho completo e registros completos
 
         if (arquivo.length() < TAMANHO_CABECALHO
                 || (arquivo.length() - TAMANHO_CABECALHO) % TAMANHO_REGISTRO != 0) {
             throw new IOException("O arquivo não corresponde ao formato de registros de 181 bytes.");
         }
 
-        // volta para o incio do arquivo
         arquivo.seek(0);
         int proximoIdProduto = arquivo.readInt();
         int topoPilha = arquivo.readInt();
-
-        // condicao da pilha permanecera -1 nessa primeira entrega
-        // para um proxixa, a pilha sera iniciada
 
         if (proximoIdProduto <= 0 || topoPilha != -1) {
             throw new IOException("Cabeçalho inválido ou pilha de remoções ainda não suportada.");
         }
     }
 
-    // transformar string em campo fixo com tratamento de erro
-
     private static byte[] prepararTexto(String texto, int tamanho) {
-        // recebe uma string com o seu tamanho para ransformar em um vetor de bytes
-
         if (texto == null || texto.isBlank()) {
             throw new IllegalArgumentException("O texto não pode estar vazio.");
         }
 
-        // texto e codificado para UTF-8, e eh guardado no vetor de bytes
         byte[] bytesTexto = texto.getBytes(StandardCharsets.UTF_8);
-
-        // se o texto codificado for maior que o espaco definido, o erro sera tratado
 
         if (bytesTexto.length > tamanho || texto.indexOf('\0') >= 0) {
             throw new IllegalArgumentException(
                     "O texto deve caber em " + tamanho + " bytes e não conter caractere nulo.");
         }
 
-        // cria o campo fixo, inicialmente preenchido com zeros
         byte[] campo = new byte[tamanho];
-
-        // copia o conteúdo do texto para o campo e o resto fica com 0
-
-        for (int i = 0; i < bytesTexto.length; i++) {
-            campo[i] = bytesTexto[i];
-        }
+        System.arraycopy(bytesTexto, 0, campo, 0, bytesTexto.length);
         return campo;
     }
-
-    // metodo usado para ler um campo, comecando a leitura na posicao atual
 
     private static String lerTexto(RandomAccessFile arquivo, int tamanho) throws IOException {
         byte[] campo = new byte[tamanho];
         arquivo.readFully(campo);
         int tamanhoReal = 0;
 
-        // descobre o quanto do vetor eh realmente texto
-
         while (tamanhoReal < tamanho && campo[tamanhoReal] != 0) {
             tamanhoReal++;
         }
         return new String(campo, 0, tamanhoReal, StandardCharsets.UTF_8);
     }
-
-    // vai ler apenas um byte, que vai ver se esta removido ou nao
 
     private static byte lerFlag(RandomAccessFile arquivo) throws IOException {
         byte flag = arquivo.readByte();
@@ -102,14 +79,11 @@ public class ArquivoProduto {
         return flag;
     }
 
-    // metodo que ira escrever os registros
-
     private static void escreverRegistro(RandomAccessFile arquivo, Produto produto) throws IOException {
         if (produto.getRemovido() != FLAG_ATIVO) {
             throw new IllegalArgumentException("Somente produtos ativos podem ser gravados por este método.");
         }
 
-        // Valida todos os textos antes de escrever qualquer campo do registro
         byte[] nome = prepararTexto(produto.getNome(), TAMANHO_STRING);
         byte[] descricao = prepararTexto(produto.getDescricao(), TAMANHO_DESCRICAO);
         arquivo.writeByte(produto.getRemovido());
@@ -121,10 +95,8 @@ public class ArquivoProduto {
         arquivo.write(descricao);
     }
 
-    // Retorna null para um registro marcado como removido, ou seja, byte = 1
-
     private static Produto lerRegistro(RandomAccessFile arquivo) throws IOException {
-        long inicio = arquivo.getFilePointer(); // sera utilizado para ser a posicao atual no arquivo
+        long inicio = arquivo.getFilePointer();
         byte flag = lerFlag(arquivo);
 
         if (flag == FLAG_REMOVIDO) {
@@ -138,7 +110,6 @@ public class ArquivoProduto {
         String nome = lerTexto(arquivo, TAMANHO_STRING);
         String descricao = lerTexto(arquivo, TAMANHO_DESCRICAO);
 
-        // try eh usado para verificar possivel erro ou nao
         try {
             return new Produto(flag, nome, descricao, preco, quantidade, idProduto, idUsuario);
         } catch (IllegalArgumentException erro) {
@@ -164,8 +135,6 @@ public class ArquivoProduto {
         throw new IllegalArgumentException("Produto não encontrado: " + idProduto);
     }
 
-    // Gera o ID, grava o produto e devolve o objeto cadastrado
-
     public static Produto cadastrar(String nome, String descricao, double preco,
             int quantidadeEstoque, int idUsuario) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
@@ -173,14 +142,11 @@ public class ArquivoProduto {
             arquivo.seek(0);
             int idGerado = arquivo.readInt();
 
-            // verifica a quantidade de produtos se esta no max de int
-
             if (idGerado == Integer.MAX_VALUE) {
                 throw new IllegalStateException("O contador de IDs atingiu o limite.");
             }
             Produto produto = new Produto(FLAG_ATIVO, nome, descricao, preco, quantidadeEstoque, idGerado, idUsuario);
 
-            // escreve no final do arquivo
             arquivo.seek(arquivo.length());
             escreverRegistro(arquivo, produto);
             arquivo.seek(0);
@@ -188,8 +154,6 @@ public class ArquivoProduto {
             return produto;
         }
     }
-
-    // metodo utilizado na busca por id do produto
 
     public static Produto buscarPorId(int idProduto) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
@@ -200,10 +164,9 @@ public class ArquivoProduto {
         }
     }
 
-    // Converte a posição do registro em RRN após verificar a disponibilidade do produto.
-    static int rrnDisponivel(int idProduto) throws IOException {
+    public static int rrnDisponivel(int idProduto) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "r")) {
-            MarketPlace.conferirProdutos(arquivo);
+            ArquivoBinario.conferirProdutos(arquivo);
             long pos = localizarRegistro(arquivo, idProduto);
             arquivo.seek(pos);
             if (lerRegistro(arquivo).getQuantidade() <= 0) {
@@ -213,13 +176,12 @@ public class ArquivoProduto {
         }
     }
 
-    // Consulta o registro pela posição persistida no carrinho. Um registro ausente ou removido retorna null.
-    static Produto buscarPorRRN(int rrn) throws IOException {
-        if (!new java.io.File(NOME_ARQUIVO).exists()) {
+    public static Produto buscarPorRRN(int rrn) throws IOException {
+        if (!new File(NOME_ARQUIVO).exists()) {
             return null;
         }
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "r")) {
-            MarketPlace.conferirProdutos(arquivo);
+            ArquivoBinario.conferirProdutos(arquivo);
             long pos = TAMANHO_CABECALHO + (long) rrn * TAMANHO_REGISTRO;
             if (rrn < 0 || pos >= arquivo.length()) {
                 return null;
@@ -227,6 +189,82 @@ public class ArquivoProduto {
             arquivo.seek(pos);
             return lerRegistro(arquivo);
         }
+    }
+
+    /** Consulta os itens do carrinho distinguindo produtos ativos, removidos pelo vendedor e indisponíveis. */
+    public static List<ItemCarrinho> consultarItensPorRRNs(int[] rrns) throws IOException {
+        List<ItemCarrinho> itens = new ArrayList<>();
+        if (rrns == null) {
+            return itens;
+        }
+        File arq = new File(NOME_ARQUIVO);
+        if (!arq.exists()) {
+            for (int pos = 0; pos < rrns.length; pos++) {
+                if (rrns[pos] != -1) {
+                    itens.add(ItemCarrinho.indisponivel(pos));
+                }
+            }
+            return itens;
+        }
+        try (RandomAccessFile raf = new RandomAccessFile(arq, "r")) {
+            ArquivoBinario.conferirProdutos(raf);
+            for (int pos = 0; pos < rrns.length; pos++) {
+                int rrn = rrns[pos];
+                if (rrn == -1) {
+                    continue;
+                }
+                long offset = TAMANHO_CABECALHO + (long) rrn * TAMANHO_REGISTRO;
+                if (rrn < 0 || offset + TAMANHO_REGISTRO > raf.length()) {
+                    itens.add(ItemCarrinho.indisponivel(pos));
+                    continue;
+                }
+                raf.seek(offset);
+                byte flag = lerFlag(raf);
+                int idUsuario = raf.readInt();
+                int idProduto = raf.readInt();
+                if (flag == FLAG_REMOVIDO) {
+                    itens.add(ItemCarrinho.removidoPeloVendedor(pos, idProduto));
+                    continue;
+                }
+                double preco = raf.readDouble();
+                int estoque = raf.readInt();
+                String nome = lerTexto(raf, TAMANHO_STRING);
+                String descricao = lerTexto(raf, TAMANHO_DESCRICAO);
+                try {
+                    Produto produto = new Produto(flag, nome, descricao, preco, estoque, idProduto, idUsuario);
+                    itens.add(ItemCarrinho.ativo(pos, produto));
+                } catch (IllegalArgumentException e) {
+                    throw new IOException("O registro contém dados de produto inválidos.", e);
+                }
+            }
+        }
+        return itens;
+    }
+
+    /** Localiza no vetor de RRNs do carrinho a primeira posição cujo registro corresponde ao ID informado. */
+    public static int localizarPosicaoNoCarrinhoPorId(int[] rrns, int idProduto) throws IOException {
+        if (idProduto <= 0) {
+            throw new IllegalArgumentException("O ID do produto deve ser maior que zero.");
+        }
+        try (RandomAccessFile raf = new RandomAccessFile(NOME_ARQUIVO, "r")) {
+            ArquivoBinario.conferirProdutos(raf);
+            for (int i = 0; i < rrns.length; i++) {
+                int rrn = rrns[i];
+                if (rrn == -1) {
+                    continue;
+                }
+                long posRegistro = TAMANHO_CABECALHO + (long) rrn * TAMANHO_REGISTRO;
+                if (rrn < 0 || posRegistro + TAMANHO_REGISTRO > raf.length()) {
+                    continue;
+                }
+                raf.seek(posRegistro + 1 + Integer.BYTES);
+                int idLido = raf.readInt();
+                if (idLido == idProduto) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     public static List<Produto> listarTodos() throws IOException {
@@ -238,9 +276,6 @@ public class ArquivoProduto {
 
             while (arquivo.getFilePointer() < arquivo.length()) {
                 Produto produto = lerRegistro(arquivo);
-
-                // adiciona somente se nao for nulo
-
                 if (produto != null) {
                     produtos.add(produto);
                 }
@@ -263,8 +298,6 @@ public class ArquivoProduto {
         return produtosDoUsuario;
     }
 
-    // Salva alteracoes feitas nos dados de um produto existente
-
     public static void atualizar(Produto produto) throws IOException {
         if (produto == null) {
             throw new IllegalArgumentException("O produto não pode ser nulo.");
@@ -284,7 +317,12 @@ public class ArquivoProduto {
         }
     }
 
-    // funcao para remover registro
+    public static void removerRegistro(int idProduto) throws IOException {
+        try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "rw")) {
+            remover_registro(arquivo, idProduto);
+        }
+    }
+
     public static void remover_registro(RandomAccessFile arquivo, int idProduto)
             throws IOException {
         prepararArquivo(arquivo);

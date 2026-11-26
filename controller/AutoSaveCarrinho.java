@@ -1,40 +1,48 @@
+package controller;
+
 import java.io.IOException;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
+import model.ArquivoProduto;
+import model.ArquivoUsuario;
+import model.User;
 
-/** Uma sessão usa um único executor para serializar as gravações do carrinho. */
-final class AutoSaveCarrinho {
+/** Uma sessão usa um único executor para serializar as gravações periódicas do carrinho. */
+public final class AutoSaveCarrinho {
     private final User usuario;
     private final Consumer<String> mostrarEstado;
+    private final Executor despachanteInterface;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private long versao;
     private long versaoSalva;
     private boolean encerrado;
 
-    AutoSaveCarrinho(User usuario, Consumer<String> mostrarEstado) {
+    public AutoSaveCarrinho(User usuario, Consumer<String> mostrarEstado, Executor despachanteInterface) {
         this.usuario = usuario;
         this.mostrarEstado = mostrarEstado;
+        this.despachanteInterface = despachanteInterface;
         executor.scheduleWithFixedDelay(this::salvarPeriodicamente, 10, 10, TimeUnit.SECONDS);
     }
 
     // A mudança de versão e a alteração do vetor ocorrem sob o mesmo bloqueio.
-    synchronized void adicionar(int id) throws IOException {
-        usuario.adicionarEmMemoria(id);
+    public synchronized void adicionar(int idProduto) throws IOException {
+        int rrn = ArquivoProduto.rrnDisponivel(idProduto);
+        usuario.adicionarRrnAoCarrinho(rrn);
         versao++;
     }
 
-    synchronized void remover(int posicao) {
-        usuario.removerEmMemoria(posicao);
+    public synchronized void remover(int posicao) {
+        usuario.removerPosicaoDoCarrinho(posicao);
         versao++;
     }
 
-    synchronized int[] itens() {
-        return usuario.cartProductsRRN.clone();
+    public synchronized int[] itens() {
+        return usuario.getCartProductsRRN();
     }
 
     private void salvarPendente() throws IOException {
@@ -48,13 +56,13 @@ final class AutoSaveCarrinho {
             copia = itens();
         }
         // A escrita usa a cópia fora do bloqueio, permitindo novas edições na interface.
-        usuario.salvarCarrinho(copia);
+        ArquivoUsuario.salvarCarrinho(usuario.getKey(), copia);
         String hora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         synchronized (this) {
             versaoSalva = versaoDaCopia;
         }
-        // Só anuncia a gravação se a tela ainda estiver mostrando a versão salva.
-        SwingUtilities.invokeLater(() -> {
+        // Só anuncia a gravação se a interface ainda estiver exibindo a versão salva.
+        despachanteInterface.execute(() -> {
             synchronized (this) {
                 if (!encerrado && versao == versaoDaCopia) {
                     mostrarEstado.accept("Salvo às " + hora);
@@ -67,7 +75,7 @@ final class AutoSaveCarrinho {
         try {
             salvarPendente();
         } catch (IOException e) {
-            SwingUtilities.invokeLater(() -> {
+            despachanteInterface.execute(() -> {
                 if (!encerrado) {
                     mostrarEstado.accept("Alterações pendentes — falha ao salvar: " + e.getMessage());
                 }
@@ -75,18 +83,18 @@ final class AutoSaveCarrinho {
         }
     }
 
-    // A tela bloqueia novas ações até receber o resultado da última gravação.
-    void encerrar(Runnable aoSair, Consumer<String> aoFalhar) {
+    // A interface bloqueia novas ações até receber o resultado da última gravação.
+    public void encerrar(Runnable aoSair, Consumer<String> aoFalhar) {
         executor.execute(() -> {
             try {
                 salvarPendente();
                 executor.shutdown();
-                SwingUtilities.invokeLater(() -> {
+                despachanteInterface.execute(() -> {
                     encerrado = true;
                     aoSair.run();
                 });
             } catch (IOException e) {
-                SwingUtilities.invokeLater(() -> aoFalhar.accept("Alterações pendentes — " + e.getMessage()));
+                despachanteInterface.execute(() -> aoFalhar.accept("Alterações pendentes — " + e.getMessage()));
             }
         });
     }
