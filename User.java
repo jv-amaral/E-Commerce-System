@@ -173,6 +173,7 @@ public class User {
         }
     }
 
+    // Encontra a primeira posição livre e guarda o RRN. Cada entrada decide quando salvar.
     int adicionarEmMemoria(int idProduto) throws IOException {
         for (int i = 0; i < cartProductsRRN.length; i++) {
             if (cartProductsRRN[i] == -1) {
@@ -183,6 +184,7 @@ public class User {
         throw new IllegalArgumentException("Seu carrinho está cheio!");
     }
 
+    // Libera somente a posição escolhida, inclusive quando o produto aparece mais de uma vez.
     void removerEmMemoria(int posicao) {
         if (posicao < 0 || posicao >= cartProductsRRN.length || cartProductsRRN[posicao] == -1) {
             throw new IllegalArgumentException("Selecione um item do carrinho.");
@@ -300,6 +302,7 @@ public class User {
         salvarCarrinho(cartProductsRRN);
     }
 
+    // Localiza a conta pela chave e sobrescreve apenas seus cinco RRNs em Users.bin.
     void salvarCarrinho(int[] rrns) throws IOException {
         if (!new File("Users.bin").exists()) {
             throw new IOException("Usuário não cadastrado em Users.bin.");
@@ -405,6 +408,7 @@ class UserExtended extends User {
     }
 
     // Demais Métodos:
+    // Confere o vendedor antes de disponibilizar o produto para edição ou remoção.
     Produto produtoDaLoja(int id) throws IOException {
         Produto produto = ArquivoProduto.buscarPorId(id);
         if (produto.getIdUsuario() != key) {

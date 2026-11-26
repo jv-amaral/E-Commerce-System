@@ -147,6 +147,7 @@ public class MarketPlace {
         return criarConta(tipoConta, key, password, "NILL", "NILL");
     }
 
+    // Agrupa os campos de um registro de Stores.bin para a consulta às lojas.
     static class Loja {
         final int vendedor;
         final String nome;
@@ -164,6 +165,7 @@ public class MarketPlace {
         }
     }
 
+    // Percorre os registros de tamanho fixo na ordem em que as lojas foram cadastradas.
     static List<Loja> listarLojas() throws IOException {
         List<Loja> lojas = new ArrayList<>();
         if (new File("Stores.bin").exists()) {

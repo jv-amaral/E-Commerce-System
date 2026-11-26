@@ -200,6 +200,7 @@ public class ArquivoProduto {
         }
     }
 
+    // Converte a posição do registro em RRN após verificar a disponibilidade do produto.
     static int rrnDisponivel(int idProduto) throws IOException {
         try (RandomAccessFile arquivo = new RandomAccessFile(NOME_ARQUIVO, "r")) {
             MarketPlace.conferirProdutos(arquivo);
@@ -212,6 +213,7 @@ public class ArquivoProduto {
         }
     }
 
+    // Consulta o registro pela posição persistida no carrinho. Um registro ausente ou removido retorna null.
     static Produto buscarPorRRN(int rrn) throws IOException {
         if (!new java.io.File(NOME_ARQUIVO).exists()) {
             return null;

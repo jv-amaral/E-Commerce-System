@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 
+/** Uma sessão usa um único executor para serializar as gravações do carrinho. */
 final class AutoSaveCarrinho {
     private final User usuario;
     private final Consumer<String> mostrarEstado;
@@ -21,6 +22,7 @@ final class AutoSaveCarrinho {
         executor.scheduleWithFixedDelay(this::salvarPeriodicamente, 10, 10, TimeUnit.SECONDS);
     }
 
+    // A mudança de versão e a alteração do vetor ocorrem sob o mesmo bloqueio.
     synchronized void adicionar(int id) throws IOException {
         usuario.adicionarEmMemoria(id);
         versao++;
@@ -45,11 +47,13 @@ final class AutoSaveCarrinho {
             versaoDaCopia = versao;
             copia = itens();
         }
+        // A escrita usa a cópia fora do bloqueio, permitindo novas edições na interface.
         usuario.salvarCarrinho(copia);
         String hora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         synchronized (this) {
             versaoSalva = versaoDaCopia;
         }
+        // Só anuncia a gravação se a tela ainda estiver mostrando a versão salva.
         SwingUtilities.invokeLater(() -> {
             synchronized (this) {
                 if (!encerrado && versao == versaoDaCopia) {
